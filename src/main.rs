@@ -1,3 +1,4 @@
+use clap::Parser;
 use popol;
 use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, LevelFilter,
@@ -7,26 +8,25 @@ use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use structopt::StructOpt;
 
 // FIXME UNIX only
 use std::os::unix::process::ExitStatusExt;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 struct Params {
     /// Executable to run
-    #[structopt(parse(from_os_str))]
+    #[clap(parse(from_os_str))]
     command: PathBuf,
     /// Verbosity (may be repeated up to three times)
-    #[structopt(short, long, parse(from_occurrences))]
+    #[clap(short, long, parse(from_occurrences))]
     verbose: u8,
     /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
-    #[structopt(long, name="duration", parse(try_from_str = duration_str::parse))]
+    #[clap(long, name="duration", parse(try_from_str = duration_str::parse))]
     idle_timeout: Option<Duration>
 }
 
 fn main() {
-    if let Err(error) = cli(Params::from_args()) {
+    if let Err(error) = cli(Params::parse()) {
         eprintln!("Error: {:#}", error);
         std::process::exit(1);
     }
