@@ -1,0 +1,21 @@
+[package]
+name = "rederr"
+version = "0.1.0"
+authors = ["Daniel Parks <oss-rederr@demonhorse.org>"]
+description = "Run a program, timestamp each line of output, and make stderr red"
+homepage = "https://github.com/danielparks/rederr"
+repository = "https://github.com/danielparks/rederr"
+readme = "README.md"
+keywords = []
+categories = [] # https://crates.io/category_slugs
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+anyhow = "1.0.44"
+log = "0.4.14"
+simplelog = "0.10.2"
+structopt = "0.3.23"
