@@ -4,10 +4,11 @@ use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, LevelFilter,
     TermLogger, TerminalMode,
 };
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
+use termcolor::{Color, ColorSpec, WriteColor};
 
 // FIXME UNIX only
 use std::os::unix::process::ExitStatusExt;
@@ -23,7 +24,7 @@ struct Params {
     verbose: u8,
     /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
     #[clap(long, name="duration", parse(try_from_str = duration_str::parse))]
-    idle_timeout: Option<Duration>
+    idle_timeout: Option<Duration>,
 }
 
 fn main() {
@@ -64,7 +65,10 @@ fn cli(params: Params) -> anyhow::Result<()> {
     let mut child_err = child.stderr.take().expect("child.stderr is None");
     sources.register(2, &child_err, popol::interest::READ);
 
-    let mut last_key = 1;
+    let mut stdout =
+        termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+    let mut err_color = ColorSpec::new();
+    err_color.set_fg(Some(Color::Red));
 
     'outer: loop {
         wait_on(&mut sources, &mut events, params.idle_timeout)?;
@@ -73,14 +77,6 @@ fn cli(params: Params) -> anyhow::Result<()> {
             // FIXME does read ever return non-zero if event.hangup?
             if event.readable || event.hangup {
                 loop {
-                    if last_key == 1 && *key == 2 {
-                        print!("<")
-                    } else if last_key == 2 && *key == 1 {
-                        print!(">")
-                    }
-
-                    last_key = *key;
-
                     let count = if *key == 1 {
                         child_out.read(&mut buffer)?
                     } else {
@@ -92,7 +88,15 @@ fn cli(params: Params) -> anyhow::Result<()> {
                         break 'outer;
                     }
 
-                    io::stdout().write_all(&buffer[..count])?;
+                    if *key == 2 {
+                        stdout.set_color(&err_color)?;
+                    }
+
+                    stdout.write_all(&buffer[..count])?;
+
+                    if *key == 2 {
+                        stdout.reset()?;
+                    }
 
                     if count < buffer.len() {
                         break;

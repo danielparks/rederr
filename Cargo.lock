@@ -318,6 +318,7 @@ dependencies = [
  "log",
  "popol",
  "simplelog",
+ "termcolor",
 ]
 
 [[package]]
