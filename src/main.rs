@@ -46,10 +46,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
         .spawn()?;
 
     let mut buffer = [0; 5]; // FIXME: best buffer size?
-    let mut child_out = child
-        .stdout
-        .take()
-        .expect("could not get stdout from child");
+    let mut child_out = child.stdout.take().expect("child.stdout is None");
 
     loop {
         let bytes = child_out.read(&mut buffer)?;
