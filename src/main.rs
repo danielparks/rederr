@@ -13,6 +13,7 @@ use std::time::Duration;
 use std::os::unix::process::ExitStatusExt;
 
 #[derive(Debug, clap::Parser)]
+#[clap(version, about)]
 struct Params {
     /// Executable to run
     #[clap(parse(from_os_str))]
