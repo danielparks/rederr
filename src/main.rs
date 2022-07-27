@@ -1,11 +1,13 @@
+use popol;
 use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, LevelFilter,
     TermLogger, TerminalMode,
 };
+use std::io;
 use std::io::Read;
 use std::path::PathBuf;
-use std::process::exit;
 use std::process::{Command, Stdio};
+use std::time;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -21,7 +23,7 @@ struct Params {
 fn main() {
     if let Err(error) = cli(Params::from_args()) {
         eprintln!("Error: {:#}", error);
-        exit(1);
+        std::process::exit(1);
     }
 }
 
@@ -43,32 +45,66 @@ fn cli(params: Params) -> anyhow::Result<()> {
 
     let mut child = Command::new(params.command)
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?;
 
-    let mut buffer = [0; 5]; // FIXME: best buffer size?
+    let mut buffer = [0; 500]; // FIXME: best buffer size?
+    let mut sources = popol::Sources::with_capacity(2);
+    let mut events = popol::Events::with_capacity(2);
+
     let mut child_out = child.stdout.take().expect("child.stdout is None");
+    sources.register(1, &child_out, popol::interest::READ);
 
-    loop {
-        let bytes = child_out.read(&mut buffer)?;
+    let mut child_err = child.stderr.take().expect("child.stderr is None");
+    sources.register(2, &child_err, popol::interest::READ);
 
-        if bytes == 0 {
-            // FIXME detect actual EOF, or SIGCHILD?
-            break;
+    'outer: loop {
+        match sources.wait_timeout(&mut events, time::Duration::from_secs(6)) {
+            Ok(()) => {}
+            Err(err) if err.kind() == io::ErrorKind::TimedOut => {
+                std::process::exit(1)
+            }
+            Err(err) => return Err(err.into()),
         }
 
-        println!(
-            "output [{}]: {:?}",
-            bytes,
-            std::str::from_utf8(&buffer[0..bytes])?
-        );
+        for (key, event) in events.iter() {
+            // FIXME does read ever return non-zero if event.hangup?
+            //println!("event: {:?}", event);
+            if event.readable || event.hangup {
+                print!("{}: ", if *key == 1 { "out" } else { "err" });
+                loop {
+                    let bytes = if *key == 1 {
+                        child_out.read(&mut buffer)?
+                    } else {
+                        child_err.read(&mut buffer)?
+                    };
+
+                    if bytes == 0 {
+                        // FIXME detect actual EOF, or SIGCHILD?
+                        eprintln!("GOT BYTES == 0");
+                        break 'outer;
+                    }
+
+                    print!("{:?}", std::str::from_utf8(&buffer[..bytes])?);
+                    //io::stdout().write_all(&buf[..n])?
+
+                    if bytes < buffer.len() {
+                        eprintln!(
+                            "bytes < buffer.len(): {} < {}",
+                            bytes,
+                            buffer.len()
+                        );
+                        break;
+                    }
+                }
+                println!(">");
+            }
+        }
     }
 
-    let output = child.wait_with_output().expect("failed to wait on child");
+    let exit_code = child.wait().expect("failed to wait on child");
 
-    println!(
-        "final output: {:?}",
-        std::str::from_utf8(output.stdout.as_slice())?
-    );
+    println!("exit code: {:?}", exit_code);
 
     Ok(())
 }

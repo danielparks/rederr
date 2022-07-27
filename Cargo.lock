@@ -133,6 +133,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "popol"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2dac9010e6fc2d991bbf3c362433214c28f7f1a82151b6b1de8dd69d27211495"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -180,6 +189,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "popol",
  "simplelog",
  "structopt",
 ]
