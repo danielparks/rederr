@@ -14,3 +14,5 @@ sleep 1
 echo 6 STDERR >&2
 echo 7 stdout
 echo 8 STDERR >&2
+
+kill $$

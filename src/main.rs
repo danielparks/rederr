@@ -3,12 +3,14 @@ use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, LevelFilter,
     TermLogger, TerminalMode,
 };
-use std::io;
-use std::io::Read;
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::time;
+use std::time::Duration;
 use structopt::StructOpt;
+
+// FIXME UNIX only
+use std::os::unix::process::ExitStatusExt;
 
 #[derive(Debug, StructOpt)]
 struct Params {
@@ -58,55 +60,70 @@ fn cli(params: Params) -> anyhow::Result<()> {
     let mut child_err = child.stderr.take().expect("child.stderr is None");
     sources.register(2, &child_err, popol::interest::READ);
 
+    let mut last_key = 1;
+
     'outer: loop {
-        match sources.wait_timeout(&mut events, time::Duration::from_secs(6)) {
-            Ok(()) => {}
-            Err(err) if err.kind() == io::ErrorKind::TimedOut => {
-                std::process::exit(1)
-            }
-            Err(err) => return Err(err.into()),
-        }
+        // FIXME configurable timeout
+        wait_on(&mut sources, &mut events, None)?;
 
         for (key, event) in events.iter() {
             // FIXME does read ever return non-zero if event.hangup?
-            //println!("event: {:?}", event);
             if event.readable || event.hangup {
-                print!("{}: ", if *key == 1 { "out" } else { "err" });
                 loop {
-                    let bytes = if *key == 1 {
+                    if last_key == 1 && *key == 2 {
+                        print!("<")
+                    } else if last_key == 2 && *key == 1 {
+                        print!(">")
+                    }
+
+                    last_key = *key;
+
+                    let count = if *key == 1 {
                         child_out.read(&mut buffer)?
                     } else {
                         child_err.read(&mut buffer)?
                     };
 
-                    if bytes == 0 {
+                    if count == 0 {
                         // FIXME detect actual EOF, or SIGCHILD?
-                        eprintln!("GOT BYTES == 0");
                         break 'outer;
                     }
 
-                    print!("{:?}", std::str::from_utf8(&buffer[..bytes])?);
-                    //io::stdout().write_all(&buf[..n])?
+                    io::stdout().write_all(&buffer[..count])?;
 
-                    if bytes < buffer.len() {
-                        eprintln!(
-                            "bytes < buffer.len(): {} < {}",
-                            bytes,
-                            buffer.len()
-                        );
+                    if count < buffer.len() {
                         break;
                     }
                 }
-                println!(">");
             }
         }
     }
 
-    let exit_code = child.wait().expect("failed to wait on child");
+    let status = child.wait().expect("failed to wait on child");
+    std::process::exit(
+        code_for_wait_status(status).expect("no exit code or signal for child"),
+    );
+}
 
-    println!("exit code: {:?}", exit_code);
+fn wait_on<T>(
+    sources: &mut popol::Sources<T>,
+    events: &mut popol::Events<T>,
+    timeout: Option<Duration>,
+) -> anyhow::Result<()>
+where
+    T: Clone,
+    T: Eq,
+{
+    match timeout {
+        Some(timeout) => sources.wait_timeout(events, timeout),
+        None => sources.wait(events),
+    }
+    .map_err(|e| e.into())
+    // FIXME? handle if err.kind() == io::ErrorKind::TimedOut
+}
 
-    Ok(())
+fn code_for_wait_status(status: std::process::ExitStatus) -> Option<i32> {
+    status.code().or(Some(128 + status.signal()?))
 }
 
 fn new_term_logger(level: LevelFilter, config: Config) -> Box<TermLogger> {
