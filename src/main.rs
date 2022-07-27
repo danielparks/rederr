@@ -20,6 +20,9 @@ struct Params {
     /// Verbosity (may be repeated up to three times)
     #[structopt(short, long, parse(from_occurrences))]
     verbose: u8,
+    /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
+    #[structopt(long, name="duration", parse(try_from_str = duration_str::parse))]
+    idle_timeout: Option<Duration>
 }
 
 fn main() {
@@ -63,8 +66,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
     let mut last_key = 1;
 
     'outer: loop {
-        // FIXME configurable timeout
-        wait_on(&mut sources, &mut events, None)?;
+        wait_on(&mut sources, &mut events, params.idle_timeout)?;
 
         for (key, event) in events.iter() {
             // FIXME does read ever return non-zero if event.hangup?
