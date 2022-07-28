@@ -313,6 +313,7 @@ name = "rederr"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "atty",
  "clap",
  "duration-str",
  "log",

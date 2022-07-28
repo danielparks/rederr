@@ -82,8 +82,21 @@ fn cli(
     sources.register(PollKey::Err, &child_err, popol::interest::READ);
 
     // FIXME? check if it’s a TTY?
-    let mut stdout = termcolor::StandardStream::stdout(ColorChoice::Auto);
-    let mut stderr = termcolor::StandardStream::stderr(ColorChoice::Auto);
+    let out_color_choice = if atty::is(atty::Stream::Stdout) {
+        ColorChoice::Auto
+    } else {
+        ColorChoice::Never
+    };
+
+    let err_color_choice = if atty::is(atty::Stream::Stderr) {
+        ColorChoice::Auto
+    } else {
+        ColorChoice::Never
+    };
+
+    let mut stdout = termcolor::StandardStream::stdout(out_color_choice);
+    let mut stderr = termcolor::StandardStream::stderr(err_color_choice);
+
     let mut err_color = ColorSpec::new();
     err_color.set_fg(Some(Color::Red));
     err_color.set_intense(true);
