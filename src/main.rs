@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::process;
 use std::time::Duration;
-use termcolor::{Color, ColorChoice, ColorSpec, WriteColor};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 // FIXME UNIX only (is popol UNIX only?)
 use std::os::unix::process::ExitStatusExt;
@@ -17,6 +17,9 @@ struct Params {
     /// Don't combine stderr into stdout; keep it separate
     #[clap(long, short)]
     separate: bool,
+    /// Always output in color
+    #[clap(long, short = 'c')]
+    always_color: bool,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -84,25 +87,11 @@ fn cli(
     let mut child_err = child.stderr.take().expect("child.stderr is None");
     sources.register(PollKey::Err, &child_err, popol::interest::READ);
 
-    // FIXME? check if it’s a TTY?
-    let out_color_choice = if atty::is(atty::Stream::Stdout) {
-        ColorChoice::Auto
+    let mut out_out = color_stream(atty::Stream::Stdout, &params);
+    let mut out_err = if params.separate {
+        color_stream(atty::Stream::Stderr, &params)
     } else {
-        ColorChoice::Never
-    };
-
-    let mut stdout = termcolor::StandardStream::stdout(out_color_choice);
-
-    let mut stderr = if params.separate {
-        let err_color_choice = if atty::is(atty::Stream::Stderr) {
-            ColorChoice::Auto
-        } else {
-            ColorChoice::Never
-        };
-
-        termcolor::StandardStream::stderr(err_color_choice)
-    } else {
-        termcolor::StandardStream::stdout(out_color_choice)
+        color_stream(atty::Stream::Stdout, &params)
     };
 
     let mut err_color = ColorSpec::new();
@@ -130,13 +119,13 @@ fn cli(
                     }
 
                     if *key == PollKey::Out {
-                        stdout.write_all(&buffer[..count])?;
-                        stdout.flush()?; // If there wasn’t a newline.
+                        out_out.write_all(&buffer[..count])?;
+                        out_out.flush()?; // If there wasn’t a newline.
                     } else {
-                        stderr.set_color(&err_color)?;
-                        stderr.write_all(&buffer[..count])?;
-                        stderr.reset()?;
-                        stderr.flush()?; // Probably not necessary.
+                        out_err.set_color(&err_color)?;
+                        out_err.write_all(&buffer[..count])?;
+                        out_err.reset()?;
+                        out_err.flush()?; // If there wasn’t a newline.
                     }
 
                     if count < buffer.len() {
@@ -151,6 +140,22 @@ fn cli(
     process::exit(
         wait_status_to_code(status).expect("no exit code or signal for child"),
     );
+}
+
+fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
+    let choice = if params.always_color {
+        ColorChoice::Always
+    } else if atty::is(stream) {
+        ColorChoice::Auto
+    } else {
+        ColorChoice::Never
+    };
+
+    match stream {
+        atty::Stream::Stdout => StandardStream::stdout(choice),
+        atty::Stream::Stderr => StandardStream::stderr(choice),
+        atty::Stream::Stdin => panic!("can’t output to stdin"),
+    }
 }
 
 fn wait_on(
