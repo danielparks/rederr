@@ -134,7 +134,7 @@ where
 }
 
 fn code_for_wait_status(status: std::process::ExitStatus) -> Option<i32> {
-    status.code().or(Some(128 + status.signal()?))
+    status.code().or_else(|| Some(128 + status.signal()?))
 }
 
 fn new_term_logger(level: LevelFilter, config: Config) -> Box<TermLogger> {
