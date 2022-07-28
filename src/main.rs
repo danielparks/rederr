@@ -65,10 +65,12 @@ fn cli(params: Params) -> anyhow::Result<()> {
     let mut child_err = child.stderr.take().expect("child.stderr is None");
     sources.register(2, &child_err, popol::interest::READ);
 
+    // FIXME? check if it’s a TTY?
     let mut stdout =
         termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
     let mut err_color = ColorSpec::new();
     err_color.set_fg(Some(Color::Red));
+    err_color.set_intense(true);
 
     'outer: loop {
         wait_on(&mut sources, &mut events, params.idle_timeout)?;
