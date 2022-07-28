@@ -22,7 +22,7 @@ struct Params {
     always_color: bool,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 enum PollKey {
     Out,
     Err,
@@ -154,7 +154,7 @@ fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
     match stream {
         atty::Stream::Stdout => StandardStream::stdout(choice),
         atty::Stream::Stderr => StandardStream::stderr(choice),
-        atty::Stream::Stdin => panic!("can’t output to stdin"),
+        atty::Stream::Stdin => panic!("can't output to stdin"),
     }
 }
 
