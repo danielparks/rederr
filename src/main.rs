@@ -1,5 +1,4 @@
-use clap::Parser;
-use popol;
+use clap::{Args, FromArgMatches};
 use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::process;
@@ -9,26 +8,59 @@ use termcolor::{Color, ColorChoice, ColorSpec, WriteColor};
 // FIXME UNIX only (is popol UNIX only?)
 use std::os::unix::process::ExitStatusExt;
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, Args)]
 #[clap(version, about)]
 struct Params {
-    /// Executable to run
-    #[clap()]
-    command: OsString,
     /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
     #[clap(long, name="duration", parse(try_from_str = duration_str::parse))]
     idle_timeout: Option<Duration>,
 }
 
 fn main() {
-    if let Err(error) = cli(Params::parse()) {
+    // Use the builder so that we can accepts options and flags as part of ARGS
+    // without having to use --. For example: rederr tar -xf -
+    let clap_command = clap::Command::new("command")
+        .trailing_var_arg(true)
+        .arg(
+            clap::Arg::with_name("COMMAND")
+                .help("The executable to run")
+                .takes_value(true)
+                .allow_invalid_utf8(true)
+                .required(true),
+        )
+        .arg(
+            clap::Arg::with_name("ARGS")
+                .help("Arguments to pass to the executable")
+                .takes_value(true)
+                .allow_invalid_utf8(true)
+                .multiple(true)
+                .allow_hyphen_values(true),
+        );
+    let matches = Params::augment_args(clap_command).get_matches();
+
+    let command: &OsString = matches.get_one::<OsString>("COMMAND").unwrap();
+    let args: Vec<&OsString> = matches
+        .get_many::<OsString>("ARGS")
+        .map(|vals| vals.collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let params = Params::from_arg_matches(&matches)
+        .map_err(|err| err.exit())
+        .unwrap();
+
+    if let Err(error) = cli(command, args, params) {
         eprintln!("Error: {:#}", error);
         process::exit(1);
     }
 }
 
-fn cli(params: Params) -> anyhow::Result<()> {
-    let mut child = process::Command::new(params.command)
+fn cli(
+    command: &OsString,
+    args: Vec<&OsString>,
+    params: Params,
+) -> anyhow::Result<()> {
+    let mut child = process::Command::new(command)
+        .args(args)
         .stdout(process::Stdio::piped())
         .stderr(process::Stdio::piped())
         .spawn()?;
