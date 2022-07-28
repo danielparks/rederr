@@ -317,7 +317,6 @@ dependencies = [
  "duration-str",
  "log",
  "popol",
- "simplelog",
  "termcolor",
 ]
 
@@ -355,17 +354,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "simplelog"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85d04ae642154220ef00ee82c36fb07853c10a4f2a0ca6719f9991211d2eb959"
-dependencies = [
- "chrono",
- "log",
- "termcolor",
 ]
 
 [[package]]
