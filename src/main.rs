@@ -55,7 +55,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
         .stderr(Stdio::piped())
         .spawn()?;
 
-    let mut buffer = [0; 500]; // FIXME: best buffer size?
+    let mut buffer = [0; 1024]; // FIXME: best buffer size?
     let mut sources = popol::Sources::with_capacity(2);
     let mut events = popol::Events::with_capacity(2);
 
