@@ -132,15 +132,11 @@ fn cli(
     );
 }
 
-fn wait_on<T>(
-    sources: &mut popol::Sources<T>,
-    events: &mut popol::Events<T>,
+fn wait_on(
+    sources: &mut popol::Sources<PollKey>,
+    events: &mut popol::Events<PollKey>,
     timeout: Option<Duration>,
-) -> anyhow::Result<()>
-where
-    T: Clone,
-    T: Eq,
-{
+) -> anyhow::Result<()> {
     match timeout {
         Some(timeout) => sources.wait_timeout(events, timeout),
         None => sources.wait(events),
