@@ -68,6 +68,8 @@ fn cli(params: Params) -> anyhow::Result<()> {
     // FIXME? check if it’s a TTY?
     let mut stdout =
         termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+    let mut stderr =
+        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
     let mut err_color = ColorSpec::new();
     err_color.set_fg(Some(Color::Red));
     err_color.set_intense(true);
@@ -93,13 +95,13 @@ fn cli(params: Params) -> anyhow::Result<()> {
                     }
 
                     if *key == 2 {
-                        stdout.set_color(&err_color)?;
-                    }
-
-                    stdout.write_all(&buffer[..count])?;
-
-                    if *key == 2 {
-                        stdout.reset()?;
+                        stderr.set_color(&err_color)?;
+                        stderr.write_all(&buffer[..count])?;
+                        stderr.reset()?;
+                        stderr.flush()?; // Probably not necessary.
+                    } else {
+                        stdout.write_all(&buffer[..count])?;
+                        stdout.flush()?; // If there wasn’t a newline.
                     }
 
                     if count < buffer.len() {
