@@ -16,6 +16,12 @@ struct Params {
     idle_timeout: Option<Duration>,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+enum PollKey {
+    Out,
+    Err,
+}
+
 fn main() {
     // Use the builder so that we can accepts options and flags as part of ARGS
     // without having to use --. For example: rederr tar -xf -
@@ -70,10 +76,10 @@ fn cli(
     let mut events = popol::Events::new();
 
     let mut child_out = child.stdout.take().expect("child.stdout is None");
-    sources.register(1, &child_out, popol::interest::READ);
+    sources.register(PollKey::Out, &child_out, popol::interest::READ);
 
     let mut child_err = child.stderr.take().expect("child.stderr is None");
-    sources.register(2, &child_err, popol::interest::READ);
+    sources.register(PollKey::Err, &child_err, popol::interest::READ);
 
     // FIXME? check if it’s a TTY?
     let mut stdout = termcolor::StandardStream::stdout(ColorChoice::Auto);
@@ -91,7 +97,7 @@ fn cli(
             // FIXME does read ever return non-zero if event.hangup?
             if event.readable || event.hangup {
                 loop {
-                    let count = if *key == 1 {
+                    let count = if *key == PollKey::Out {
                         child_out.read(&mut buffer)?
                     } else {
                         child_err.read(&mut buffer)?
@@ -102,14 +108,14 @@ fn cli(
                         break 'outer;
                     }
 
-                    if *key == 2 {
+                    if *key == PollKey::Out {
+                        stdout.write_all(&buffer[..count])?;
+                        stdout.flush()?; // If there wasn’t a newline.
+                    } else {
                         stderr.set_color(&err_color)?;
                         stderr.write_all(&buffer[..count])?;
                         stderr.reset()?;
                         stderr.flush()?; // Probably not necessary.
-                    } else {
-                        stdout.write_all(&buffer[..count])?;
-                        stdout.flush()?; // If there wasn’t a newline.
                     }
 
                     if count < buffer.len() {
