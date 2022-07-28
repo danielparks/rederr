@@ -15,4 +15,10 @@ echo -n "6 STDERR " >&2
 echo -n "7 stdout "
 echo 8 STDERR >&2
 
+echo -n "9 STDERR sleep 0.1 " >&2
+sleep 0.1
+echo -n "10 stdout sleep 0.1 "
+sleep 0.1
+echo 11 STDERR >&2
+
 kill $$
