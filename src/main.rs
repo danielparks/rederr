@@ -14,6 +14,9 @@ struct Params {
     /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
     #[clap(long, name="duration", parse(try_from_str = duration_str::parse))]
     idle_timeout: Option<Duration>,
+    /// Don't combine stderr into stdout; keep it separate
+    #[clap(long, short)]
+    separate: bool,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -88,14 +91,19 @@ fn cli(
         ColorChoice::Never
     };
 
-    let err_color_choice = if atty::is(atty::Stream::Stderr) {
-        ColorChoice::Auto
-    } else {
-        ColorChoice::Never
-    };
-
     let mut stdout = termcolor::StandardStream::stdout(out_color_choice);
-    let mut stderr = termcolor::StandardStream::stderr(err_color_choice);
+
+    let mut stderr = if params.separate {
+        let err_color_choice = if atty::is(atty::Stream::Stderr) {
+            ColorChoice::Auto
+        } else {
+            ColorChoice::Never
+        };
+
+        termcolor::StandardStream::stderr(err_color_choice)
+    } else {
+        termcolor::StandardStream::stdout(out_color_choice)
+    };
 
     let mut err_color = ColorSpec::new();
     err_color.set_fg(Some(Color::Red));
