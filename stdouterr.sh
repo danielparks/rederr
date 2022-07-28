@@ -2,8 +2,8 @@
 # It's often useful to have something that outputs to both stdout and stderr
 
 echo 1 stdout
-echo 2 STDERR >&2
-echo 3 stdout
+echo 2 stdout
+echo 3 STDERR >&2
 
 echo 4 STDERR: sleep 0.1 >&2
 sleep 0.1

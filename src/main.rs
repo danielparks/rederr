@@ -72,6 +72,8 @@ fn cli(params: Params) -> anyhow::Result<()> {
     err_color.set_fg(Some(Color::Red));
     err_color.set_intense(true);
 
+    // FIXME this sometimes messes up the order if stderr and stdout are used
+    // in the same line. Not sure this is possible to fix.
     'outer: loop {
         wait_on(&mut sources, &mut events, params.idle_timeout)?;
 
