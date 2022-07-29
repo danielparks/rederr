@@ -106,7 +106,7 @@ fn cli(
 
     // FIXME this sometimes messes up the order if stderr and stdout are used
     // in the same line. Not sure this is possible to fix.
-    'outer: loop {
+    while !sources.is_empty() {
         wait_on(&mut sources, &mut events, params.idle_timeout)?;
 
         for (key, event) in events.iter() {
@@ -114,8 +114,7 @@ fn cli(
                 println!("{:?} {:?}", key, event);
             }
 
-            // FIXME does read ever return non-zero if event.hangup?
-            if event.readable || event.hangup {
+            if event.readable {
                 loop {
                     let count = if *key == PollKey::Out {
                         child_out.read(&mut buffer)?
@@ -130,12 +129,8 @@ fn cli(
                             count,
                             std::str::from_utf8(&buffer[..count]).unwrap()
                         );
-                    } else {
-                        if count == 0 {
-                            // FIXME detect actual EOF, or SIGCHILD?
-                            break 'outer;
-                        }
-
+                    } else if count > 0 {
+                        // Only output if there’s something to output.
                         if *key == PollKey::Out {
                             out_out.write_all(&buffer[..count])?;
                             out_out.flush()?; // If there wasn’t a newline.
@@ -151,6 +146,11 @@ fn cli(
                         break;
                     }
                 }
+            }
+
+            if event.hangup {
+                // FIXME only stop if BOTH streams have hung up.
+                sources.unregister(key);
             }
         }
     }
