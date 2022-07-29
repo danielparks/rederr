@@ -20,6 +20,12 @@ struct Params {
     /// Always output in color
     #[clap(long, short = 'c')]
     always_color: bool,
+    /// Output debugging information rather than coloring stderr
+    #[clap(long)]
+    debug: bool,
+    /// How large a buffer to use; generally you will not need to change this
+    #[clap(long, default_value_t = 1024)]
+    buffer_size: usize,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -77,7 +83,7 @@ fn cli(
         .stderr(process::Stdio::piped())
         .spawn()?;
 
-    let mut buffer = [0; 1024]; // FIXME: best buffer size?
+    let mut buffer = vec![0; params.buffer_size]; // FIXME: best buffer size?
     let mut sources = popol::Sources::with_capacity(2);
     let mut events = popol::Events::new();
 
@@ -104,6 +110,10 @@ fn cli(
         wait_on(&mut sources, &mut events, params.idle_timeout)?;
 
         for (key, event) in events.iter() {
+            if params.debug {
+                println!("{:?} {:?}", key, event);
+            }
+
             // FIXME does read ever return non-zero if event.hangup?
             if event.readable || event.hangup {
                 loop {
@@ -113,19 +123,28 @@ fn cli(
                         child_err.read(&mut buffer)?
                     };
 
-                    if count == 0 {
-                        // FIXME detect actual EOF, or SIGCHILD?
-                        break 'outer;
-                    }
-
-                    if *key == PollKey::Out {
-                        out_out.write_all(&buffer[..count])?;
-                        out_out.flush()?; // If there wasn’t a newline.
+                    if params.debug {
+                        // FIXME don’t require UTF-8
+                        println!(
+                            "read {} bytes {:?}",
+                            count,
+                            std::str::from_utf8(&buffer[..count]).unwrap()
+                        );
                     } else {
-                        out_err.set_color(&err_color)?;
-                        out_err.write_all(&buffer[..count])?;
-                        out_err.reset()?;
-                        out_err.flush()?; // If there wasn’t a newline.
+                        if count == 0 {
+                            // FIXME detect actual EOF, or SIGCHILD?
+                            break 'outer;
+                        }
+
+                        if *key == PollKey::Out {
+                            out_out.write_all(&buffer[..count])?;
+                            out_out.flush()?; // If there wasn’t a newline.
+                        } else {
+                            out_err.set_color(&err_color)?;
+                            out_err.write_all(&buffer[..count])?;
+                            out_err.reset()?;
+                            out_err.flush()?; // If there wasn’t a newline.
+                        }
                     }
 
                     if count < buffer.len() {
