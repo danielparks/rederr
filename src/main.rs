@@ -129,10 +129,14 @@ fn cli(
 
                     let count = match result {
                         Ok(count) => count,
-                        Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                            break
+                        Err(err) => {
+                            if err.kind() == io::ErrorKind::WouldBlock {
+                                // Done reading.
+                                break;
+                            } else {
+                                return Err(err.into());
+                            }
                         }
-                        Err(err) => return Err(err.into()),
                     };
 
                     if params.debug {
@@ -156,6 +160,12 @@ fn cli(
                     }
 
                     if count < buffer.len() {
+                        // Strictly speaking this is an optimization. We could
+                        // read again and get io::ErrorKind::WouldBlock, but I
+                        // think this check makes it more likely the output
+                        // ordering is correct. A partial read indicates that
+                        // the stream had stopped, so we should check to see if
+                        // another stream is ready.
                         break;
                     }
                 }
