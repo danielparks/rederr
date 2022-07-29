@@ -1,6 +1,4 @@
 use clap::{Args, FromArgMatches};
-use nix::fcntl::FcntlArg::F_SETFL;
-use nix::fcntl::{fcntl, OFlag};
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
 use std::os::unix::prelude::AsRawFd;
@@ -188,9 +186,16 @@ fn cli(
     );
 }
 
-fn set_nonblock(fd: &dyn AsRawFd) -> anyhow::Result<()> {
-    fcntl(fd.as_raw_fd(), F_SETFL(OFlag::O_NONBLOCK))?;
-    Ok(())
+/// Set a stream to be non-blocking
+fn set_nonblock(fd: &dyn AsRawFd) -> io::Result<()> {
+    let fd = fd.as_raw_fd();
+
+    // SAFETY: required for FFI; shouldn’t break rust guarantees.
+    match unsafe { libc::fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK) } {
+        0 => Ok(()),
+        -1 => Err(io::Error::last_os_error()),
+        other => panic!("fcntl returned {} instead of 0 or -1", other),
+    }
 }
 
 fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
