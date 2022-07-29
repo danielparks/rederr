@@ -174,8 +174,8 @@ fn cli(
     );
 }
 
-fn set_nonblock(s: &dyn AsRawFd) -> anyhow::Result<()> {
-    fcntl(s.as_raw_fd(), F_SETFL(OFlag::O_NONBLOCK))?;
+fn set_nonblock(fd: &dyn AsRawFd) -> anyhow::Result<()> {
+    fcntl(fd.as_raw_fd(), F_SETFL(OFlag::O_NONBLOCK))?;
     Ok(())
 }
 
