@@ -132,6 +132,10 @@ fn cli(
                         Err(err) => {
                             if err.kind() == io::ErrorKind::WouldBlock {
                                 // Done reading.
+                                if params.debug {
+                                    println!("io::ErrorKind::WouldBlock");
+                                }
+
                                 break;
                             } else {
                                 return Err(err.into());
