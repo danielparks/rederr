@@ -84,7 +84,6 @@ fn cli(
         .stderr(process::Stdio::piped())
         .spawn()?;
 
-    let mut buffer = vec![0; params.buffer_size]; // FIXME: best buffer size?
     let mut sources = popol::Sources::with_capacity(2);
     let mut events = popol::Events::new();
 
@@ -109,7 +108,9 @@ fn cli(
     err_color.set_fg(Some(Color::Red));
     err_color.set_intense(true);
 
-    // FIXME this sometimes messes up the order if stderr and stdout are used
+    let mut buffer = vec![0; params.buffer_size];
+
+    // FIXME? this sometimes messes up the order if stderr and stdout are used
     // in the same line. Not sure this is possible to fix.
     while !sources.is_empty() {
         wait_on(&mut sources, &mut events, params.idle_timeout)?;
@@ -164,12 +165,11 @@ fn cli(
                     }
 
                     if count < buffer.len() {
-                        // Strictly speaking this is an optimization. We could
-                        // read again and get io::ErrorKind::WouldBlock, but I
-                        // think this check makes it more likely the output
-                        // ordering is correct. A partial read indicates that
-                        // the stream had stopped, so we should check to see if
-                        // another stream is ready.
+                        // We could read again and get either 0 bytes or
+                        // io::ErrorKind::WouldBlock, but I think this check
+                        // makes it more likely the output ordering is correct.
+                        // A partial read indicates that the stream had stopped,
+                        // so we should check to see if another stream is ready.
                         break;
                     }
                 }
@@ -214,12 +214,14 @@ fn wait_on(
     events: &mut popol::Events<PollKey>,
     timeout: Option<Duration>,
 ) -> anyhow::Result<()> {
+    // FIXME? handle EINTR? I don’t think it will come up unless we have a
+    // signal handler set.
     match timeout {
         Some(timeout) => sources.wait_timeout(events, timeout),
         None => sources.wait(events),
     }
     .map_err(|e| e.into())
-    // FIXME? handle if err.kind() == io::ErrorKind::TimedOut
+    // FIXME better message if err.kind() == io::ErrorKind::TimedOut
 }
 
 /// Get the actual exit code from a finished child process
