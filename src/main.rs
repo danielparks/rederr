@@ -1,12 +1,13 @@
 use clap::{Args, FromArgMatches};
+use nix::fcntl::FcntlArg::F_SETFL;
+use nix::fcntl::{fcntl, OFlag};
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
+use std::os::unix::prelude::AsRawFd;
+use std::os::unix::process::ExitStatusExt;
 use std::process;
 use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-
-// FIXME UNIX only (is popol UNIX only?)
-use std::os::unix::process::ExitStatusExt;
 
 #[derive(Debug, Args)]
 #[clap(version, about)]
@@ -161,7 +162,7 @@ fn cli(
             }
 
             if event.hangup {
-                // FIXME only stop if BOTH streams have hung up.
+                // Remove the stream from poll.
                 sources.unregister(key);
             }
         }
@@ -172,10 +173,6 @@ fn cli(
         wait_status_to_code(status).expect("no exit code or signal for child"),
     );
 }
-
-use nix::fcntl::FcntlArg::F_SETFL;
-use nix::fcntl::{fcntl, OFlag};
-use std::os::unix::prelude::AsRawFd;
 
 fn set_nonblock(s: &dyn AsRawFd) -> anyhow::Result<()> {
     fcntl(s.as_raw_fd(), F_SETFL(OFlag::O_NONBLOCK))?;
