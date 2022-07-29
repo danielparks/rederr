@@ -1,6 +1,6 @@
 use clap::{Args, FromArgMatches};
 use std::ffi::OsString;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::process;
 use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -88,9 +88,13 @@ fn cli(
     let mut events = popol::Events::new();
 
     let mut child_out = child.stdout.take().expect("child.stdout is None");
+    set_nonblock(&child_out)
+        .expect("child stdout cannot be set to non-blocking");
     sources.register(PollKey::Out, &child_out, popol::interest::READ);
 
     let mut child_err = child.stderr.take().expect("child.stderr is None");
+    set_nonblock(&child_err)
+        .expect("child stderr cannot be set to non-blocking");
     sources.register(PollKey::Err, &child_err, popol::interest::READ);
 
     let mut out_out = color_stream(atty::Stream::Stdout, &params);
@@ -116,10 +120,18 @@ fn cli(
 
             if event.readable {
                 loop {
-                    let count = if *key == PollKey::Out {
-                        child_out.read(&mut buffer)?
+                    let result = if *key == PollKey::Out {
+                        child_out.read(&mut buffer)
                     } else {
-                        child_err.read(&mut buffer)?
+                        child_err.read(&mut buffer)
+                    };
+
+                    let count = match result {
+                        Ok(count) => count,
+                        Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                            break
+                        }
+                        Err(err) => return Err(err.into()),
                     };
 
                     if params.debug {
@@ -159,6 +171,15 @@ fn cli(
     process::exit(
         wait_status_to_code(status).expect("no exit code or signal for child"),
     );
+}
+
+use nix::fcntl::FcntlArg::F_SETFL;
+use nix::fcntl::{fcntl, OFlag};
+use std::os::unix::prelude::AsRawFd;
+
+fn set_nonblock(s: &dyn AsRawFd) -> anyhow::Result<()> {
+    fcntl(s.as_raw_fd(), F_SETFL(OFlag::O_NONBLOCK))?;
+    Ok(())
 }
 
 fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
