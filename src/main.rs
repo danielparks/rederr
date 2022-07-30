@@ -1,4 +1,4 @@
-use clap::{Args, FromArgMatches};
+use clap::Parser;
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
 use std::os::unix::prelude::AsRawFd;
@@ -7,23 +7,35 @@ use std::process;
 use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-#[derive(Debug, Args)]
-#[clap(version, about)]
+#[derive(Debug, Parser)]
+#[clap(version, about, allow_hyphen_values = true, trailing_var_arg = true)]
 struct Params {
-    /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
-    #[clap(long, name="duration", parse(try_from_str = duration_str::parse))]
-    idle_timeout: Option<Duration>,
-    /// Don't combine stderr into stdout; keep it separate
-    #[clap(long, short)]
-    separate: bool,
+    /// The executable to run
+    #[clap()]
+    command: OsString,
+
+    /// Arguments to pass to the executable
+    #[clap()]
+    args: Vec<OsString>,
+
     /// Always output in color
     #[clap(long, short = 'c')]
     always_color: bool,
-    /// Output debugging information rather than coloring stderr
-    #[clap(long)]
+
+    /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
+    #[clap(long, name="duration", parse(try_from_str = duration_str::parse))]
+    idle_timeout: Option<Duration>,
+
+    /// Don't combine stderr into stdout; keep them separate
+    #[clap(long, short)]
+    separate: bool,
+
+    // Hidden: output debugging information rather than coloring stderr
+    #[clap(long, hide = true)]
     debug: bool,
-    /// How large a buffer to use; generally you will not need to change this
-    #[clap(long, default_value_t = 1024)]
+
+    /// Hidden: how large a buffer to use
+    #[clap(long, default_value_t = 1024, hide = true)]
     buffer_size: usize,
 }
 
@@ -34,50 +46,15 @@ enum PollKey {
 }
 
 fn main() {
-    // Use the builder so that we can accepts options and flags as part of ARGS
-    // without having to use --. For example: rederr tar -xf -
-    let clap_command = clap::Command::new("command")
-        .trailing_var_arg(true)
-        .arg(
-            clap::Arg::with_name("COMMAND")
-                .help("The executable to run")
-                .takes_value(true)
-                .allow_invalid_utf8(true)
-                .required(true),
-        )
-        .arg(
-            clap::Arg::with_name("ARGS")
-                .help("Arguments to pass to the executable")
-                .takes_value(true)
-                .allow_invalid_utf8(true)
-                .multiple(true)
-                .allow_hyphen_values(true),
-        );
-    let matches = Params::augment_args(clap_command).get_matches();
-
-    let command: &OsString = matches.get_one::<OsString>("COMMAND").unwrap();
-    let args: Vec<&OsString> = matches
-        .get_many::<OsString>("ARGS")
-        .map(|vals| vals.collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    let params = Params::from_arg_matches(&matches)
-        .map_err(|err| err.exit())
-        .unwrap();
-
-    if let Err(error) = cli(command, args, params) {
+    if let Err(error) = cli(Params::parse()) {
         eprintln!("Error: {:#}", error);
         process::exit(1);
     }
 }
 
-fn cli(
-    command: &OsString,
-    args: Vec<&OsString>,
-    params: Params,
-) -> anyhow::Result<()> {
-    let mut child = process::Command::new(command)
-        .args(args)
+fn cli(params: Params) -> anyhow::Result<()> {
+    let mut child = process::Command::new(&params.command)
+        .args(&params.args)
         .stdout(process::Stdio::piped())
         .stderr(process::Stdio::piped())
         .spawn()?;
