@@ -45,10 +45,16 @@ enum PollKey {
     Err,
 }
 
+macro_rules! fail {
+    ($($arg:tt)*) => {
+        eprintln!($($arg)*);
+        process::exit(1);
+    };
+}
+
 fn main() {
     if let Err(error) = cli(Params::parse()) {
-        eprintln!("Error: {:#}", error);
-        process::exit(1);
+        fail!("Error: {:#}", error);
     }
 }
 
@@ -57,7 +63,10 @@ fn cli(params: Params) -> anyhow::Result<()> {
         .args(&params.args)
         .stdout(process::Stdio::piped())
         .stderr(process::Stdio::piped())
-        .spawn()?;
+        .spawn()
+        .unwrap_or_else(|err| {
+            fail!("Could not run command {:?}: {}", params.command, err);
+        });
 
     let mut sources = popol::Sources::with_capacity(2);
     let mut events = popol::Events::new();
@@ -88,7 +97,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
     // FIXME? this sometimes messes up the order if stderr and stdout are used
     // in the same line. Not sure this is possible to fix.
     while !sources.is_empty() {
-        wait_on(&mut sources, &mut events, params.idle_timeout)?;
+        wait_on(&mut sources, &mut events, params.idle_timeout);
 
         for (key, event) in events.iter() {
             if params.debug {
@@ -195,15 +204,22 @@ fn wait_on(
     sources: &mut popol::Sources<PollKey>,
     events: &mut popol::Events<PollKey>,
     timeout: Option<Duration>,
-) -> anyhow::Result<()> {
+) {
     // FIXME? handle EINTR? I don’t think it will come up unless we have a
     // signal handler set.
     match timeout {
         Some(timeout) => sources.wait_timeout(events, timeout),
         None => sources.wait(events),
     }
-    .map_err(|e| e.into())
-    // FIXME better message if err.kind() == io::ErrorKind::TimedOut
+    .unwrap_or_else(|err| {
+        if err.kind() == io::ErrorKind::TimedOut {
+            if let Some(timeout) = timeout {
+                fail!("Timed out waiting for input after {:?}", timeout);
+            }
+        }
+
+        fail!("Error while waiting for input: {:#}", err);
+    });
 }
 
 /// Get the actual exit code from a finished child process
