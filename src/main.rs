@@ -8,7 +8,7 @@ use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Debug, Parser)]
-#[clap(version, about, allow_hyphen_values = true, trailing_var_arg = true)]
+#[clap(version, about, allow_hyphen_values = true)]
 struct Params {
     /// The executable to run
     #[clap()]
