@@ -8,14 +8,14 @@ use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Debug, Parser)]
-#[clap(version, about, allow_hyphen_values = true)]
+#[clap(version, about)]
 struct Params {
     /// The executable to run
     #[clap()]
     command: OsString,
 
     /// Arguments to pass to the executable
-    #[clap()]
+    #[clap(allow_hyphen_values = true)]
     args: Vec<OsString>,
 
     /// Always output in color
