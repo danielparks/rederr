@@ -9,7 +9,7 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Debug, Parser)]
 #[clap(version, about)]
-struct Params {
+pub(crate) struct Params {
     /// The executable to run
     #[clap()]
     command: OsString,
@@ -225,4 +225,140 @@ fn wait_on(
 /// Get the actual exit code from a finished child process
 fn wait_status_to_code(status: process::ExitStatus) -> Option<i32> {
     status.code().or_else(|| Some(128 + status.signal()?))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use assertify::assertify;
+
+    #[test]
+    fn args_invalid_long_option() {
+        let parse =
+            Params::try_parse_from(["redder", "--foo", "-s", "command"]);
+        assertify!(parse.is_err());
+        let error = parse.unwrap_err();
+        assertify!(error.kind() == clap::ErrorKind::UnknownArgument);
+        assertify!(error.info == ["--foo"]);
+    }
+
+    #[test]
+    fn args_invalid_short_option() {
+        let parse = Params::try_parse_from(["redder", "-X", "-s", "command"]);
+        assertify!(parse.is_err());
+        let error = parse.unwrap_err();
+        assertify!(error.kind() == clap::ErrorKind::UnknownArgument);
+        assertify!(error.info == ["-X"]);
+    }
+
+    #[test]
+    #[ignore] // FIXME broken by clap bug
+    fn args_other_long_option_after_command() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--always-color",
+            "command",
+            "--foo",
+        ])
+        .unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["--foo"]);
+        assertify!(params.always_color == true);
+        assertify!(params.separate == false);
+    }
+
+    #[test]
+    fn args_other_short_option_after_command() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--always-color",
+            "command",
+            "-f",
+        ])
+        .unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["-f"]);
+        assertify!(params.always_color == true);
+        assertify!(params.separate == false);
+    }
+
+    #[test]
+    fn args_other_mixed_option_after_command() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--always-color",
+            "command",
+            "-f",
+            "--foo",
+        ])
+        .unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["-f", "--foo"]);
+        assertify!(params.always_color == true);
+        assertify!(params.separate == false);
+    }
+
+    #[test]
+    #[ignore] // FIXME broken by clap bug
+    fn args_our_long_option_after_command() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--always-color",
+            "command",
+            "--separate",
+        ])
+        .unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["--separate"]);
+        assertify!(params.always_color == true);
+        assertify!(params.separate == false);
+    }
+
+    #[test]
+    #[ignore] // FIXME broken by clap bug
+    fn args_our_same_long_option_after_command() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--separate",
+            "command",
+            "--separate",
+        ])
+        .unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["-s"]);
+        assertify!(params.always_color == false);
+        assertify!(params.separate == true);
+    }
+
+    #[test]
+    fn args_our_short_option_after_command() {
+        let params =
+            Params::try_parse_from(["redder", "-c", "command", "-s"]).unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["-s"]);
+        assertify!(params.always_color == true);
+        assertify!(params.separate == false);
+    }
+
+    #[test]
+    fn args_our_same_short_option_after_command() {
+        let params =
+            Params::try_parse_from(["redder", "-s", "command", "-s"]).unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["-s"]);
+        assertify!(params.always_color == false);
+        assertify!(params.separate == true);
+    }
+
+    #[test]
+    fn args_command_with_args() {
+        let params = Params::try_parse_from([
+            "redder", "-s", "command", "-s", "-abc", "foo", "--", "--bar",
+        ])
+        .unwrap();
+        assertify!(params.command == "command");
+        assertify!(params.args == ["-s", "-abc", "foo", "--", "--bar"]);
+        assertify!(params.always_color == false);
+        assertify!(params.separate == true);
+    }
 }
