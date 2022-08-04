@@ -72,12 +72,12 @@ fn cli(params: Params) -> anyhow::Result<()> {
     let mut events = popol::Events::new();
 
     let mut child_out = child.stdout.take().expect("child.stdout is None");
-    set_nonblock(&child_out)
+    set_nonblocking(&child_out, true)
         .expect("child stdout cannot be set to non-blocking");
     sources.register(PollKey::Out, &child_out, popol::interest::READ);
 
     let mut child_err = child.stderr.take().expect("child.stderr is None");
-    set_nonblock(&child_err)
+    set_nonblocking(&child_err, true)
         .expect("child stderr cannot be set to non-blocking");
     sources.register(PollKey::Err, &child_err, popol::interest::READ);
 
@@ -173,14 +173,25 @@ fn cli(params: Params) -> anyhow::Result<()> {
 }
 
 /// Set a stream to be non-blocking
-fn set_nonblock(fd: &dyn AsRawFd) -> io::Result<()> {
+pub fn set_nonblocking(fd: &dyn AsRawFd, nonblocking: bool) -> io::Result<i32> {
     let fd = fd.as_raw_fd();
 
     // SAFETY: required for FFI; shouldn’t break rust guarantees.
-    match unsafe { libc::fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK) } {
-        0 => Ok(()),
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags == -1 {
+        return Err(io::Error::last_os_error());
+    }
+
+    let flags = if nonblocking {
+        flags | libc::O_NONBLOCK
+    } else {
+        flags & !libc::O_NONBLOCK
+    };
+
+    // SAFETY: required for FFI; shouldn’t break rust guarantees.
+    match unsafe { libc::fcntl(fd, libc::F_SETFL, flags) } {
         -1 => Err(io::Error::last_os_error()),
-        other => panic!("fcntl returned {} instead of 0 or -1", other),
+        result => Ok(result),
     }
 }
 
