@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use clap::Parser;
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
@@ -23,7 +24,12 @@ pub(crate) struct Params {
     always_color: bool,
 
     /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
-    #[clap(long, name="duration", parse(try_from_str = duration_str::parse))]
+    #[clap(
+        long,
+        name = "duration",
+        parse(try_from_str = parse_idle_timeout),
+        allow_hyphen_values = true,
+    )]
     idle_timeout: Option<Duration>,
 
     /// Don't combine stderr into stdout; keep them separate
@@ -35,8 +41,46 @@ pub(crate) struct Params {
     debug: bool,
 
     /// Hidden: how large a buffer to use
-    #[clap(long, default_value_t = 1024, hide = true)]
+    #[clap(
+        long,
+        default_value_t = 1024,
+        hide = true,
+        allow_hyphen_values = true
+    )]
     buffer_size: usize,
+}
+
+fn parse_duration(input: &str) -> anyhow::Result<Duration> {
+    let input = input.trim();
+
+    if input.starts_with('-') {
+        Err(anyhow!("duration cannot be negative"))
+    } else if input.chars().all(|c| c.is_ascii_digit()) {
+        // Input is all numbers, so assume it’s seconds.
+        input
+            .parse::<u64>()
+            .map(|seconds| Duration::from_secs(seconds))
+            .map_err(|e| e.into())
+    } else {
+        let duration = duration_str::parse(input)?;
+        if duration.subsec_nanos() == duration.subsec_millis() * 1_000_000 {
+            Ok(duration)
+        } else {
+            Err(anyhow!("duration cannot be more precise than milliseconds"))
+        }
+    }
+}
+
+fn parse_idle_timeout(input: &str) -> anyhow::Result<Duration> {
+    let duration = parse_duration(input)?;
+    if duration > Duration::from_millis(i32::MAX as u64) {
+        Err(anyhow!(
+            "duration cannot be larger than {} milliseconds",
+            i32::MAX
+        ))
+    } else {
+        Ok(duration)
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -371,5 +415,145 @@ mod tests {
         assertify!(params.args == ["-s", "-abc", "foo", "--", "--bar"]);
         assertify!(params.always_color == false);
         assertify!(params.separate == true);
+    }
+
+    #[test]
+    fn args_buffer_size_negative() {
+        let parse = Params::try_parse_from([
+            "redder",
+            "--buffer-size",
+            "-2",
+            "command",
+        ]);
+        let error = parse.expect_err("expected parse to fail");
+        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn args_idle_timeout_2() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "2",
+            "command",
+        ])
+        .unwrap();
+        assertify!(params.idle_timeout == Some(Duration::from_secs(2)));
+    }
+
+    #[test]
+    fn args_idle_timeout_2s() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "2s",
+            "command",
+        ])
+        .unwrap();
+        assertify!(params.idle_timeout == Some(Duration::from_secs(2)));
+    }
+
+    #[test]
+    fn args_idle_timeout_2s_1ms() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "2s 1ms",
+            "command",
+        ])
+        .unwrap();
+        assertify!(params.idle_timeout == Some(Duration::from_millis(2001)));
+    }
+
+    #[test]
+    fn args_idle_timeout_2h() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "2h",
+            "command",
+        ])
+        .unwrap();
+        assertify!(
+            params.idle_timeout == Some(Duration::from_secs(2 * 60 * 60))
+        );
+    }
+
+    #[test]
+    fn args_idle_timeout_negative() {
+        let parse = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "-2s",
+            "command",
+        ]);
+        let error = parse.expect_err("expected parse to fail");
+        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.to_string().contains("negative"));
+    }
+
+    #[test]
+    fn args_idle_timeout_zero() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "0",
+            "command",
+        ])
+        .unwrap();
+        assertify!(params.idle_timeout == Some(Duration::ZERO));
+    }
+
+    #[test]
+    fn args_idle_timeout_maximum() {
+        let params = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            &format!("{}ms", i32::MAX),
+            "command",
+        ])
+        .unwrap();
+        assertify!(
+            params.idle_timeout == Some(Duration::from_millis(i32::MAX as u64))
+        );
+    }
+
+    #[test]
+    fn args_idle_timeout_too_large() {
+        let parse = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            &format!("{}", i32::MAX as u64 + 1),
+            "command",
+        ]);
+        let error = parse.expect_err("expected parse to fail");
+        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.to_string().contains("cannot be larger"));
+    }
+
+    #[test]
+    fn args_idle_timeout_too_large_days() {
+        let parse = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "26day",
+            "command",
+        ]);
+        let error = parse.expect_err("expected parse to fail");
+        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.to_string().contains("cannot be larger"));
+    }
+
+    #[test]
+    fn args_idle_timeout_overly_precise() {
+        let parse = Params::try_parse_from([
+            "redder",
+            "--idle-timeout",
+            "2s 2ms 2ns",
+            "command",
+        ]);
+        let error = parse.expect_err("expected parse to fail");
+        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.to_string().contains("milliseconds"));
     }
 }
