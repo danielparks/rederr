@@ -1,4 +1,4 @@
-# rederr — Run a program, timestamp each line of output, and make stderr red
+# rederr — Run a program and make stderr red
 
 ```
 $ rederr my-long-running-program
