@@ -1,9 +1,12 @@
 # rederr — Run a program and make stderr red
 
 ```
-$ rederr my-long-running-program
-2022-05-25 08:16:33 AM First line of output
+$ rederr my-program
+. . .
 ```
+
+If output is emitted on both stderr and stdout at near the same time it may end
+up out of order. Unfortunately, I don’t see a good way to fix this.
 
 ## License
 
