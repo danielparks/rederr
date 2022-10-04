@@ -59,7 +59,7 @@ fn parse_duration(input: &str) -> anyhow::Result<Duration> {
         // Input is all numbers, so assume it’s seconds.
         input
             .parse::<u64>()
-            .map(|seconds| Duration::from_secs(seconds))
+            .map(Duration::from_secs)
             .map_err(|e| e.into())
     } else {
         let duration = duration_str::parse(input)?;
