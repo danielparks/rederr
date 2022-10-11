@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use clap::Parser;
+use popol::set_nonblocking;
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
-use std::os::unix::prelude::AsRawFd;
 use std::os::unix::process::ExitStatusExt;
 use std::process;
 use std::time::Duration;
@@ -141,7 +141,22 @@ fn cli(params: Params) -> anyhow::Result<()> {
     // FIXME? this sometimes messes up the order if stderr and stdout are used
     // in the same line. Not sure this is possible to fix.
     while !sources.is_empty() {
-        wait_on(&mut sources, &mut events, params.idle_timeout);
+        // FIXME? handle EINTR? I don’t think it will come up unless we have a
+        // signal handler set.
+        sources
+            .poll(&mut events, params.idle_timeout.into())
+            .unwrap_or_else(|err| {
+                if err.kind() == io::ErrorKind::TimedOut {
+                    if let Some(timeout) = params.idle_timeout {
+                        fail!(
+                            "Timed out waiting for input after {:?}",
+                            timeout
+                        );
+                    }
+                }
+
+                fail!("Error while waiting for input: {:#}", err);
+            });
 
         for (key, event) in events.iter() {
             if params.debug {
@@ -216,29 +231,6 @@ fn cli(params: Params) -> anyhow::Result<()> {
     );
 }
 
-/// Set a stream to be non-blocking
-pub fn set_nonblocking(fd: &dyn AsRawFd, nonblocking: bool) -> io::Result<i32> {
-    let fd = fd.as_raw_fd();
-
-    // SAFETY: required for FFI; shouldn’t break rust guarantees.
-    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
-    if flags == -1 {
-        return Err(io::Error::last_os_error());
-    }
-
-    let flags = if nonblocking {
-        flags | libc::O_NONBLOCK
-    } else {
-        flags & !libc::O_NONBLOCK
-    };
-
-    // SAFETY: required for FFI; shouldn’t break rust guarantees.
-    match unsafe { libc::fcntl(fd, libc::F_SETFL, flags) } {
-        -1 => Err(io::Error::last_os_error()),
-        result => Ok(result),
-    }
-}
-
 fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
     let choice = if params.always_color {
         ColorChoice::Always
@@ -253,28 +245,6 @@ fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
         atty::Stream::Stderr => StandardStream::stderr(choice),
         atty::Stream::Stdin => panic!("can't output to stdin"),
     }
-}
-
-fn wait_on(
-    sources: &mut popol::Sources<PollKey>,
-    events: &mut popol::Events<PollKey>,
-    timeout: Option<Duration>,
-) {
-    // FIXME? handle EINTR? I don’t think it will come up unless we have a
-    // signal handler set.
-    match timeout {
-        Some(timeout) => sources.wait_timeout(events, timeout),
-        None => sources.wait(events),
-    }
-    .unwrap_or_else(|err| {
-        if err.kind() == io::ErrorKind::TimedOut {
-            if let Some(timeout) = timeout {
-                fail!("Timed out waiting for input after {:?}", timeout);
-            }
-        }
-
-        fail!("Error while waiting for input: {:#}", err);
-    });
 }
 
 /// Get the actual exit code from a finished child process
