@@ -12,7 +12,6 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 #[clap(version, about)]
 pub(crate) struct Params {
     /// The executable to run
-    #[clap()]
     command: OsString,
 
     /// Arguments to pass to the executable
@@ -27,7 +26,7 @@ pub(crate) struct Params {
     #[clap(
         long,
         name = "duration",
-        parse(try_from_str = parse_idle_timeout),
+        value_parser = parse_idle_timeout,
         allow_hyphen_values = true,
     )]
     idle_timeout: Option<Duration>,
@@ -256,6 +255,7 @@ fn wait_status_to_code(status: process::ExitStatus) -> Option<i32> {
 mod tests {
     use crate::*;
     use assertify::assertify;
+    use clap::error::{ContextKind, ContextValue, ErrorKind};
 
     #[test]
     fn args_invalid_long_option() {
@@ -263,8 +263,9 @@ mod tests {
             Params::try_parse_from(["redder", "--foo", "-s", "command"]);
         assertify!(parse.is_err());
         let error = parse.unwrap_err();
-        assertify!(error.kind() == clap::ErrorKind::UnknownArgument);
-        assertify!(error.info == ["--foo"]);
+        assertify!(error.kind() == ErrorKind::UnknownArgument);
+        let value = ContextValue::String("--foo".to_owned());
+        assertify!(error.get(ContextKind::InvalidArg) == Some(&value));
     }
 
     #[test]
@@ -272,12 +273,12 @@ mod tests {
         let parse = Params::try_parse_from(["redder", "-X", "-s", "command"]);
         assertify!(parse.is_err());
         let error = parse.unwrap_err();
-        assertify!(error.kind() == clap::ErrorKind::UnknownArgument);
-        assertify!(error.info == ["-X"]);
+        assertify!(error.kind() == ErrorKind::UnknownArgument);
+        let value = ContextValue::String("-X".to_owned());
+        assertify!(error.get(ContextKind::InvalidArg) == Some(&value));
     }
 
     #[test]
-    #[ignore] // FIXME broken by clap bug
     fn args_other_long_option_after_command() {
         let params = Params::try_parse_from([
             "redder",
@@ -324,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // FIXME broken by clap bug
+    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_long_option_after_command() {
         let params = Params::try_parse_from([
             "redder",
@@ -340,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // FIXME broken by clap bug
+    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_same_long_option_after_command() {
         let params = Params::try_parse_from([
             "redder",
@@ -356,6 +357,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_short_option_after_command() {
         let params =
             Params::try_parse_from(["redder", "-c", "command", "-s"]).unwrap();
@@ -366,6 +368,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_same_short_option_after_command() {
         let params =
             Params::try_parse_from(["redder", "-s", "command", "-s"]).unwrap();
@@ -378,11 +381,11 @@ mod tests {
     #[test]
     fn args_command_with_args() {
         let params = Params::try_parse_from([
-            "redder", "-s", "command", "-s", "-abc", "foo", "--", "--bar",
+            "redder", "-s", "command", "-abc", "foo", "--", "-s", "--bar",
         ])
         .unwrap();
         assertify!(params.command == "command");
-        assertify!(params.args == ["-s", "-abc", "foo", "--", "--bar"]);
+        assertify!(params.args == ["-abc", "foo", "--", "-s", "--bar"]);
         assertify!(params.always_color == false);
         assertify!(params.separate == true);
     }
@@ -396,7 +399,7 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.kind() == ErrorKind::ValueValidation);
     }
 
     #[test]
@@ -458,7 +461,7 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.kind() == ErrorKind::ValueValidation);
         assertify!(error.to_string().contains("negative"));
     }
 
@@ -497,7 +500,7 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.kind() == ErrorKind::ValueValidation);
         assertify!(error.to_string().contains("cannot be larger"));
     }
 
@@ -510,7 +513,7 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.kind() == ErrorKind::ValueValidation);
         assertify!(error.to_string().contains("cannot be larger"));
     }
 
@@ -523,7 +526,7 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == clap::ErrorKind::ValueValidation);
+        assertify!(error.kind() == ErrorKind::ValueValidation);
         assertify!(error.to_string().contains("milliseconds"));
     }
 }
