@@ -112,7 +112,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
         });
 
     let mut sources = popol::Sources::with_capacity(2);
-    let mut events = popol::Events::new();
+    let mut events = Vec::with_capacity(2);
 
     let mut child_out = child.stdout.take().expect("child.stdout is None");
     set_nonblocking(&child_out, true)
@@ -143,7 +143,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
         // FIXME? handle EINTR? I don’t think it will come up unless we have a
         // signal handler set.
         sources
-            .poll(&mut events, params.idle_timeout.into())
+            .poll(&mut events, params.idle_timeout)
             .unwrap_or_else(|err| {
                 if err.kind() == io::ErrorKind::TimedOut {
                     if let Some(timeout) = params.idle_timeout {
@@ -157,14 +157,14 @@ fn cli(params: Params) -> anyhow::Result<()> {
                 fail!("Error while waiting for input: {:#}", err);
             });
 
-        for (key, event) in events.iter() {
+        for event in events.drain(..) {
             if params.debug {
-                println!("{:?} {:?}", key, event);
+                println!("{:?}", event);
             }
 
-            if event.readable {
+            if event.is_readable() {
                 loop {
-                    let result = if *key == PollKey::Out {
+                    let result = if event.key == PollKey::Out {
                         child_out.read(&mut buffer)
                     } else {
                         child_err.read(&mut buffer)
@@ -195,7 +195,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
                         );
                     } else if count > 0 {
                         // Only output if there’s something to output.
-                        if *key == PollKey::Out {
+                        if event.key == PollKey::Out {
                             out_out.write_all(&buffer[..count])?;
                             out_out.flush()?; // If there wasn’t a newline.
                         } else {
@@ -217,9 +217,9 @@ fn cli(params: Params) -> anyhow::Result<()> {
                 }
             }
 
-            if event.hangup {
+            if event.is_hangup() {
                 // Remove the stream from poll.
-                sources.unregister(key);
+                sources.unregister(&event.key);
             }
         }
     }
