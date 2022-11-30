@@ -25,7 +25,7 @@ pub(crate) struct Params {
     /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
     #[clap(
         long,
-        name = "duration",
+        value_name = "DURATION",
         value_parser = parse_idle_timeout,
         allow_hyphen_values = true,
     )]
