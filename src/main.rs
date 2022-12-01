@@ -49,6 +49,9 @@ pub(crate) struct Params {
     buffer_size: usize,
 }
 
+/// Maximum timeout that poll allows.
+const POLL_MAX_TIMEOUT: Duration = Duration::from_millis(i32::MAX as u64);
+
 fn parse_duration(input: &str) -> anyhow::Result<Duration> {
     let input = input.trim();
 
@@ -72,10 +75,10 @@ fn parse_duration(input: &str) -> anyhow::Result<Duration> {
 
 fn parse_idle_timeout(input: &str) -> anyhow::Result<Duration> {
     let duration = parse_duration(input)?;
-    if duration > Duration::from_millis(i32::MAX as u64) {
+    if duration > POLL_MAX_TIMEOUT {
         Err(anyhow!(
-            "duration cannot be larger than {} milliseconds",
-            i32::MAX
+            "duration cannot be larger than {:?}",
+            POLL_MAX_TIMEOUT
         ))
     } else {
         Ok(duration)
