@@ -17,11 +17,20 @@ pub(crate) struct Params {
     #[clap(long, short = 'c')]
     pub always_color: bool,
 
-    /// Timeout on individual reads (e.g. "1s", "1h", or "30ms")
+    /// Timeout for entire run (e.g. "1s", "1h", or "30ms")
     #[clap(
         long,
         value_name = "DURATION",
-        value_parser = parse_idle_timeout,
+        value_parser = parse_duration,
+        allow_hyphen_values = true,
+    )]
+    pub run_timeout: Option<Duration>,
+
+    /// Timeout for individual reads (e.g. "1s", "1h", or "30ms")
+    #[clap(
+        long,
+        value_name = "DURATION",
+        value_parser = parse_duration,
         allow_hyphen_values = true,
     )]
     pub idle_timeout: Option<Duration>,
@@ -44,9 +53,6 @@ pub(crate) struct Params {
     pub buffer_size: usize,
 }
 
-/// Maximum timeout that poll allows.
-const POLL_MAX_TIMEOUT: Duration = Duration::from_millis(i32::MAX as u64);
-
 fn parse_duration(input: &str) -> anyhow::Result<Duration> {
     let input = input.trim();
 
@@ -65,18 +71,6 @@ fn parse_duration(input: &str) -> anyhow::Result<Duration> {
         } else {
             Err(anyhow!("duration cannot be more precise than milliseconds"))
         }
-    }
-}
-
-fn parse_idle_timeout(input: &str) -> anyhow::Result<Duration> {
-    let duration = parse_duration(input)?;
-    if duration > POLL_MAX_TIMEOUT {
-        Err(anyhow!(
-            "duration cannot be larger than {:?}",
-            POLL_MAX_TIMEOUT
-        ))
-    } else {
-        Ok(duration)
     }
 }
 
@@ -336,34 +330,6 @@ mod tests {
         check!(
             params.idle_timeout == Some(Duration::from_millis(i32::MAX as u64))
         );
-    }
-
-    #[test]
-    fn args_idle_timeout_too_large() {
-        let_assert!(
-            Err(error) = Params::try_parse_from([
-                "redder",
-                "--idle-timeout",
-                &format!("{}", i32::MAX as u64 + 1),
-                "command",
-            ])
-        );
-        check!(error.kind() == ErrorKind::ValueValidation);
-        check!(error.to_string().contains("cannot be larger"));
-    }
-
-    #[test]
-    fn args_idle_timeout_too_large_days() {
-        let_assert!(
-            Err(error) = Params::try_parse_from([
-                "redder",
-                "--idle-timeout",
-                "26day",
-                "command",
-            ])
-        );
-        check!(error.kind() == ErrorKind::ValueValidation);
-        check!(error.to_string().contains("cannot be larger"));
     }
 
     #[test]

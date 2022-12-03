@@ -1,13 +1,18 @@
 use bstr::ByteSlice;
 use clap::Parser;
 use popol::set_nonblocking;
+use std::cmp;
 use std::io::{self, Read, Write};
 use std::os::unix::process::ExitStatusExt;
 use std::process;
+use std::time::Duration;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 mod params;
 use params::Params;
+
+mod timeout;
+use timeout::Timeout;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 enum PollKey {
@@ -16,11 +21,16 @@ enum PollKey {
 }
 
 macro_rules! fail {
-    ($($arg:tt)*) => {
+    ($($arg:tt)*) => {{
         eprintln!($($arg)*);
         process::exit(1);
-    };
+    }};
 }
+
+/// Maximum timeout that poll allows.
+const POLL_MAX_TIMEOUT: Timeout = Timeout::Future {
+    timeout: Duration::from_millis(i32::MAX as u64),
+};
 
 fn main() {
     if let Err(error) = cli(Params::parse()) {
@@ -29,6 +39,9 @@ fn main() {
 }
 
 fn cli(params: Params) -> anyhow::Result<()> {
+    let run_timeout = Timeout::from(params.run_timeout).start();
+    let idle_timeout = Timeout::from(params.idle_timeout);
+
     let mut child = process::Command::new(&params.command)
         .args(&params.args)
         .stdout(process::Stdio::piped())
@@ -67,22 +80,23 @@ fn cli(params: Params) -> anyhow::Result<()> {
     // FIXME? this sometimes messes up the order if stderr and stdout are used
     // in the same line. Not sure this is possible to fix.
     while !sources.is_empty() {
-        // FIXME? handle EINTR? I don’t think it will come up unless we have a
-        // signal handler set.
-        sources
-            .poll(&mut events, params.idle_timeout)
-            .unwrap_or_else(|err| {
-                if err.kind() == io::ErrorKind::TimedOut {
-                    if let Some(timeout) = params.idle_timeout {
-                        fail!(
-                            "Timed out waiting for input after {:?}",
-                            timeout
-                        );
-                    }
-                }
+        let timeout = cmp::min(&run_timeout, &idle_timeout);
+        if let Some(expired) = timeout.check_expired() {
+            timeout_fail(timeout, &expired);
+        }
 
-                fail!("Error while waiting for input: {:#}", err);
-            });
+        if params.debug {
+            println!(
+                "poll() with timeout {} (run timeout {})",
+                timeout, run_timeout
+            );
+        }
+
+        match poll(&mut sources, &mut events, timeout) {
+            Ok(None) => {} // Success
+            Ok(Some(expired)) => timeout_fail(timeout, &expired),
+            Err(error) => fail!("Error while waiting for input: {:?}", error),
+        }
 
         for event in events.drain(..) {
             if params.debug {
@@ -154,6 +168,64 @@ fn cli(params: Params) -> anyhow::Result<()> {
     process::exit(
         wait_status_to_code(status).expect("no exit code or signal for child"),
     );
+}
+
+/// Display a message about the timeout expiring.
+///
+/// `timeout` is the original timeout; `expired` is the timeout object after it
+/// expired. You can determine the type of timeout based on the variant of
+/// `timeout`, since the idle timeout is always `Timeout::Future` or
+/// `Timeout::Never` and the overall run timeout is always `Timeout::Pending`
+/// or `Timeout::Never`.
+fn timeout_fail(timeout: &Timeout, expired: &Timeout) {
+    match &timeout {
+        Timeout::Never => panic!("timed out when no timeout was set"),
+        Timeout::Expired { .. } => panic!("did not expect Timeout::Expired"),
+        Timeout::Future { .. } => {
+            fail!(
+                "Timed out waiting for input after {:?}",
+                expired.elapsed_rounded()
+            )
+        }
+        Timeout::Pending { .. } => {
+            fail!("Run timed out after {:?}", expired.elapsed_rounded())
+        }
+    }
+}
+
+/// Wait for input.
+///
+/// Returns:
+///  * `Ok(None)`: got input.
+///  * `Ok(Some(Timeout::Expired { .. })`: timeout expired without input.
+///  * `Err(error)`: an error occurred.
+fn poll(
+    sources: &mut popol::Sources<PollKey>,
+    events: &mut Vec<popol::Event<PollKey>>,
+    timeout: &Timeout,
+) -> anyhow::Result<Option<Timeout>> {
+    // FIXME? handle EINTR? I don’t think it will come up unless we have a
+    // signal handler set.
+    let timeout = timeout.start();
+    while events.is_empty() {
+        if let Some(expired) = timeout.check_expired() {
+            return Ok(Some(expired));
+        }
+
+        let call_timeout = cmp::min(&timeout, &POLL_MAX_TIMEOUT).timeout();
+        if let Err(error) = sources.poll(events, call_timeout) {
+            // Ignore valid timeouts; they are handled on next loop.
+            if call_timeout.is_some() && error.kind() == io::ErrorKind::TimedOut
+            {
+                continue;
+            }
+
+            // Invalid timeout or other error.
+            return Err(error.into());
+        }
+    }
+
+    Ok(None)
 }
 
 fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
