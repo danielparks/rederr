@@ -1,11 +1,12 @@
 use anyhow::anyhow;
 use clap::Parser;
 use popol::set_nonblocking;
+use std::cmp;
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
 use std::os::unix::process::ExitStatusExt;
 use std::process;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Debug, Parser)]
@@ -26,7 +27,7 @@ pub(crate) struct Params {
     #[clap(
         long,
         value_name = "DURATION",
-        value_parser = parse_idle_timeout,
+        value_parser = parse_duration,
         allow_hyphen_values = true,
     )]
     idle_timeout: Option<Duration>,
@@ -70,18 +71,6 @@ fn parse_duration(input: &str) -> anyhow::Result<Duration> {
         } else {
             Err(anyhow!("duration cannot be more precise than milliseconds"))
         }
-    }
-}
-
-fn parse_idle_timeout(input: &str) -> anyhow::Result<Duration> {
-    let duration = parse_duration(input)?;
-    if duration > POLL_MAX_TIMEOUT {
-        Err(anyhow!(
-            "duration cannot be larger than {:?}",
-            POLL_MAX_TIMEOUT
-        ))
-    } else {
-        Ok(duration)
     }
 }
 
@@ -143,22 +132,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
     // FIXME? this sometimes messes up the order if stderr and stdout are used
     // in the same line. Not sure this is possible to fix.
     while !sources.is_empty() {
-        // FIXME? handle EINTR? I don’t think it will come up unless we have a
-        // signal handler set.
-        sources
-            .poll(&mut events, params.idle_timeout)
-            .unwrap_or_else(|err| {
-                if err.kind() == io::ErrorKind::TimedOut {
-                    if let Some(timeout) = params.idle_timeout {
-                        fail!(
-                            "Timed out waiting for input after {:?}",
-                            timeout
-                        );
-                    }
-                }
-
-                fail!("Error while waiting for input: {:#}", err);
-            });
+        poll(&mut sources, &mut events, params.idle_timeout);
 
         for event in events.drain(..) {
             if params.debug {
@@ -231,6 +205,32 @@ fn cli(params: Params) -> anyhow::Result<()> {
     process::exit(
         wait_status_to_code(status).expect("no exit code or signal for child"),
     );
+}
+
+fn poll(
+    sources: &mut popol::Sources<PollKey>,
+    events: &mut Vec<popol::Event<PollKey>>,
+    timeout: Option<Duration>,
+) {
+    // FIXME? handle EINTR? I don’t think it will come up unless we have a
+    // signal handler set.
+    let start = Instant::now();
+    while events.is_empty() {
+        let timeout = timeout.map(|timeout| {
+            if let Some(remaining) = timeout.checked_sub(start.elapsed()) {
+                cmp::min(remaining, POLL_MAX_TIMEOUT)
+            } else {
+                fail!("Timed out waiting for input after {:?}", timeout);
+            }
+        });
+
+        if let Err(err) = sources.poll(events, timeout) {
+            // Ignore valid timeouts; they are handled on next loop.
+            if err.kind() != io::ErrorKind::TimedOut || timeout.is_none() {
+                fail!("Error while waiting for input: {:#}", err);
+            }
+        }
+    }
 }
 
 fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
@@ -492,32 +492,6 @@ mod tests {
         assertify!(
             params.idle_timeout == Some(Duration::from_millis(i32::MAX as u64))
         );
-    }
-
-    #[test]
-    fn args_idle_timeout_too_large() {
-        let parse = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            &format!("{}", i32::MAX as u64 + 1),
-            "command",
-        ]);
-        let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("cannot be larger"));
-    }
-
-    #[test]
-    fn args_idle_timeout_too_large_days() {
-        let parse = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "26day",
-            "command",
-        ]);
-        let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("cannot be larger"));
     }
 
     #[test]
