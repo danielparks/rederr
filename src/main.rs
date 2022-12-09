@@ -257,28 +257,28 @@ fn wait_status_to_code(status: process::ExitStatus) -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use assertify::assertify;
+    use assert2::{assert, check};
     use clap::error::{ContextKind, ContextValue, ErrorKind};
 
     #[test]
     fn args_invalid_long_option() {
         let parse =
             Params::try_parse_from(["redder", "--foo", "-s", "command"]);
-        assertify!(parse.is_err());
+        assert!(parse.is_err());
         let error = parse.unwrap_err();
-        assertify!(error.kind() == ErrorKind::UnknownArgument);
+        check!(error.kind() == ErrorKind::UnknownArgument);
         let value = ContextValue::String("--foo".to_owned());
-        assertify!(error.get(ContextKind::InvalidArg) == Some(&value));
+        check!(error.get(ContextKind::InvalidArg) == Some(&value));
     }
 
     #[test]
     fn args_invalid_short_option() {
         let parse = Params::try_parse_from(["redder", "-X", "-s", "command"]);
-        assertify!(parse.is_err());
+        assert!(parse.is_err());
         let error = parse.unwrap_err();
-        assertify!(error.kind() == ErrorKind::UnknownArgument);
+        check!(error.kind() == ErrorKind::UnknownArgument);
         let value = ContextValue::String("-X".to_owned());
-        assertify!(error.get(ContextKind::InvalidArg) == Some(&value));
+        check!(error.get(ContextKind::InvalidArg) == Some(&value));
     }
 
     #[test]
@@ -290,10 +290,10 @@ mod tests {
             "--foo",
         ])
         .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["--foo"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        check!(params.command == "command");
+        check!(params.args == ["--foo"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
@@ -305,10 +305,10 @@ mod tests {
             "-f",
         ])
         .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-f"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        check!(params.command == "command");
+        check!(params.args == ["-f"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
@@ -321,10 +321,10 @@ mod tests {
             "--foo",
         ])
         .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-f", "--foo"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        check!(params.command == "command");
+        check!(params.args == ["-f", "--foo"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
@@ -337,10 +337,10 @@ mod tests {
             "--separate",
         ])
         .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["--separate"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        check!(params.command == "command");
+        check!(params.args == ["--separate"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
@@ -353,10 +353,10 @@ mod tests {
             "--separate",
         ])
         .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-s"]);
-        assertify!(params.always_color == false);
-        assertify!(params.separate == true);
+        check!(params.command == "command");
+        check!(params.args == ["-s"]);
+        check!(params.always_color == false);
+        check!(params.separate == true);
     }
 
     #[test]
@@ -364,10 +364,10 @@ mod tests {
     fn args_our_short_option_after_command() {
         let params =
             Params::try_parse_from(["redder", "-c", "command", "-s"]).unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-s"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        check!(params.command == "command");
+        check!(params.args == ["-s"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
@@ -375,10 +375,10 @@ mod tests {
     fn args_our_same_short_option_after_command() {
         let params =
             Params::try_parse_from(["redder", "-s", "command", "-s"]).unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-s"]);
-        assertify!(params.always_color == false);
-        assertify!(params.separate == true);
+        check!(params.command == "command");
+        check!(params.args == ["-s"]);
+        check!(params.always_color == false);
+        check!(params.separate == true);
     }
 
     #[test]
@@ -387,10 +387,10 @@ mod tests {
             "redder", "-s", "command", "-abc", "foo", "--", "-s", "--bar",
         ])
         .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-abc", "foo", "--", "-s", "--bar"]);
-        assertify!(params.always_color == false);
-        assertify!(params.separate == true);
+        check!(params.command == "command");
+        check!(params.args == ["-abc", "foo", "--", "-s", "--bar"]);
+        check!(params.always_color == false);
+        check!(params.separate == true);
     }
 
     #[test]
@@ -402,7 +402,7 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.kind() == ErrorKind::ValueValidation);
     }
 
     #[test]
@@ -414,7 +414,7 @@ mod tests {
             "command",
         ])
         .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::from_secs(2)));
+        check!(params.idle_timeout == Some(Duration::from_secs(2)));
     }
 
     #[test]
@@ -426,7 +426,7 @@ mod tests {
             "command",
         ])
         .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::from_secs(2)));
+        check!(params.idle_timeout == Some(Duration::from_secs(2)));
     }
 
     #[test]
@@ -438,7 +438,7 @@ mod tests {
             "command",
         ])
         .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::from_millis(2001)));
+        check!(params.idle_timeout == Some(Duration::from_millis(2001)));
     }
 
     #[test]
@@ -450,9 +450,7 @@ mod tests {
             "command",
         ])
         .unwrap();
-        assertify!(
-            params.idle_timeout == Some(Duration::from_secs(2 * 60 * 60))
-        );
+        check!(params.idle_timeout == Some(Duration::from_secs(2 * 60 * 60)));
     }
 
     #[test]
@@ -464,8 +462,8 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("negative"));
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("negative"));
     }
 
     #[test]
@@ -477,7 +475,7 @@ mod tests {
             "command",
         ])
         .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::ZERO));
+        check!(params.idle_timeout == Some(Duration::ZERO));
     }
 
     #[test]
@@ -489,7 +487,7 @@ mod tests {
             "command",
         ])
         .unwrap();
-        assertify!(
+        check!(
             params.idle_timeout == Some(Duration::from_millis(i32::MAX as u64))
         );
     }
@@ -503,8 +501,8 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("cannot be larger"));
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("cannot be larger"));
     }
 
     #[test]
@@ -516,8 +514,8 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("cannot be larger"));
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("cannot be larger"));
     }
 
     #[test]
@@ -529,7 +527,7 @@ mod tests {
             "command",
         ]);
         let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("milliseconds"));
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("milliseconds"));
     }
 }
