@@ -257,279 +257,299 @@ fn wait_status_to_code(status: process::ExitStatus) -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use assertify::assertify;
-    use clap::error::{ContextKind, ContextValue, ErrorKind};
+    use assert2::{check, let_assert};
+    use clap::error::{
+        ContextKind::InvalidArg, ContextValue::String, ErrorKind,
+    };
 
     #[test]
     fn args_invalid_long_option() {
-        let parse =
-            Params::try_parse_from(["redder", "--foo", "-s", "command"]);
-        assertify!(parse.is_err());
-        let error = parse.unwrap_err();
-        assertify!(error.kind() == ErrorKind::UnknownArgument);
-        let value = ContextValue::String("--foo".to_owned());
-        assertify!(error.get(ContextKind::InvalidArg) == Some(&value));
+        let_assert!(
+            Err(error) =
+                Params::try_parse_from(["redder", "--foo", "-s", "command"])
+        );
+        check!(error.kind() == ErrorKind::UnknownArgument);
+        check!(error.get(InvalidArg) == Some(&String("--foo".into())));
     }
 
     #[test]
     fn args_invalid_short_option() {
-        let parse = Params::try_parse_from(["redder", "-X", "-s", "command"]);
-        assertify!(parse.is_err());
-        let error = parse.unwrap_err();
-        assertify!(error.kind() == ErrorKind::UnknownArgument);
-        let value = ContextValue::String("-X".to_owned());
-        assertify!(error.get(ContextKind::InvalidArg) == Some(&value));
+        let_assert!(
+            Err(error) =
+                Params::try_parse_from(["redder", "-X", "-s", "command"])
+        );
+        check!(error.kind() == ErrorKind::UnknownArgument);
+        check!(error.get(InvalidArg) == Some(&String("-X".into())));
     }
 
     #[test]
     fn args_other_long_option_after_command() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--always-color",
-            "command",
-            "--foo",
-        ])
-        .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["--foo"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--always-color",
+                "command",
+                "--foo",
+            ])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["--foo"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
     fn args_other_short_option_after_command() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--always-color",
-            "command",
-            "-f",
-        ])
-        .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-f"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--always-color",
+                "command",
+                "-f",
+            ])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["-f"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
     fn args_other_mixed_option_after_command() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--always-color",
-            "command",
-            "-f",
-            "--foo",
-        ])
-        .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-f", "--foo"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--always-color",
+                "command",
+                "-f",
+                "--foo",
+            ])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["-f", "--foo"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
     #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_long_option_after_command() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--always-color",
-            "command",
-            "--separate",
-        ])
-        .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["--separate"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--always-color",
+                "command",
+                "--separate",
+            ])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["--separate"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
     #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_same_long_option_after_command() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--separate",
-            "command",
-            "--separate",
-        ])
-        .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-s"]);
-        assertify!(params.always_color == false);
-        assertify!(params.separate == true);
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--separate",
+                "command",
+                "--separate",
+            ])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["-s"]);
+        check!(params.always_color == false);
+        check!(params.separate == true);
     }
 
     #[test]
     #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_short_option_after_command() {
-        let params =
-            Params::try_parse_from(["redder", "-c", "command", "-s"]).unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-s"]);
-        assertify!(params.always_color == true);
-        assertify!(params.separate == false);
+        let_assert!(
+            Ok(params) =
+                Params::try_parse_from(["redder", "-c", "command", "-s"])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["-s"]);
+        check!(params.always_color == true);
+        check!(params.separate == false);
     }
 
     #[test]
     #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
     fn args_our_same_short_option_after_command() {
-        let params =
-            Params::try_parse_from(["redder", "-s", "command", "-s"]).unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-s"]);
-        assertify!(params.always_color == false);
-        assertify!(params.separate == true);
+        let_assert!(
+            Ok(params) =
+                Params::try_parse_from(["redder", "-s", "command", "-s"])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["-s"]);
+        check!(params.always_color == false);
+        check!(params.separate == true);
     }
 
     #[test]
     fn args_command_with_args() {
-        let params = Params::try_parse_from([
-            "redder", "-s", "command", "-abc", "foo", "--", "-s", "--bar",
-        ])
-        .unwrap();
-        assertify!(params.command == "command");
-        assertify!(params.args == ["-abc", "foo", "--", "-s", "--bar"]);
-        assertify!(params.always_color == false);
-        assertify!(params.separate == true);
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder", "-s", "command", "-abc", "foo", "--", "-s", "--bar",
+            ])
+        );
+        check!(params.command == "command");
+        check!(params.args == ["-abc", "foo", "--", "-s", "--bar"]);
+        check!(params.always_color == false);
+        check!(params.separate == true);
     }
 
     #[test]
     fn args_buffer_size_negative() {
-        let parse = Params::try_parse_from([
-            "redder",
-            "--buffer-size",
-            "-2",
-            "command",
-        ]);
-        let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
+        let_assert!(
+            Err(error) = Params::try_parse_from([
+                "redder",
+                "--buffer-size",
+                "-2",
+                "command",
+            ])
+        );
+        check!(error.kind() == ErrorKind::ValueValidation);
     }
 
     #[test]
     fn args_idle_timeout_2() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "2",
-            "command",
-        ])
-        .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::from_secs(2)));
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "2",
+                "command",
+            ])
+        );
+        check!(params.idle_timeout == Some(Duration::from_secs(2)));
     }
 
     #[test]
     fn args_idle_timeout_2s() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "2s",
-            "command",
-        ])
-        .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::from_secs(2)));
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "2s",
+                "command",
+            ])
+        );
+        check!(params.idle_timeout == Some(Duration::from_secs(2)));
     }
 
     #[test]
     fn args_idle_timeout_2s_1ms() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "2s 1ms",
-            "command",
-        ])
-        .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::from_millis(2001)));
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "2s 1ms",
+                "command",
+            ])
+        );
+        check!(params.idle_timeout == Some(Duration::from_millis(2001)));
     }
 
     #[test]
     fn args_idle_timeout_2h() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "2h",
-            "command",
-        ])
-        .unwrap();
-        assertify!(
-            params.idle_timeout == Some(Duration::from_secs(2 * 60 * 60))
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "2h",
+                "command",
+            ])
         );
+        check!(params.idle_timeout == Some(Duration::from_secs(2 * 60 * 60)));
     }
 
     #[test]
     fn args_idle_timeout_negative() {
-        let parse = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "-2s",
-            "command",
-        ]);
-        let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("negative"));
+        let_assert!(
+            Err(error) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "-2s",
+                "command",
+            ])
+        );
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("negative"));
     }
 
     #[test]
     fn args_idle_timeout_zero() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "0",
-            "command",
-        ])
-        .unwrap();
-        assertify!(params.idle_timeout == Some(Duration::ZERO));
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "0",
+                "command",
+            ])
+        );
+        check!(params.idle_timeout == Some(Duration::ZERO));
     }
 
     #[test]
     fn args_idle_timeout_maximum() {
-        let params = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            &format!("{}ms", i32::MAX),
-            "command",
-        ])
-        .unwrap();
-        assertify!(
+        let_assert!(
+            Ok(params) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                &format!("{}ms", i32::MAX),
+                "command",
+            ])
+        );
+        check!(
             params.idle_timeout == Some(Duration::from_millis(i32::MAX as u64))
         );
     }
 
     #[test]
     fn args_idle_timeout_too_large() {
-        let parse = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            &format!("{}", i32::MAX as u64 + 1),
-            "command",
-        ]);
-        let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("cannot be larger"));
+        let_assert!(
+            Err(error) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                &format!("{}", i32::MAX as u64 + 1),
+                "command",
+            ])
+        );
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("cannot be larger"));
     }
 
     #[test]
     fn args_idle_timeout_too_large_days() {
-        let parse = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "26day",
-            "command",
-        ]);
-        let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("cannot be larger"));
+        let_assert!(
+            Err(error) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "26day",
+                "command",
+            ])
+        );
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("cannot be larger"));
     }
 
     #[test]
     fn args_idle_timeout_overly_precise() {
-        let parse = Params::try_parse_from([
-            "redder",
-            "--idle-timeout",
-            "2s 2ms 2ns",
-            "command",
-        ]);
-        let error = parse.expect_err("expected parse to fail");
-        assertify!(error.kind() == ErrorKind::ValueValidation);
-        assertify!(error.to_string().contains("milliseconds"));
+        let_assert!(
+            Err(error) = Params::try_parse_from([
+                "redder",
+                "--idle-timeout",
+                "2s 2ms 2ns",
+                "command",
+            ])
+        );
+        check!(error.kind() == ErrorKind::ValueValidation);
+        check!(error.to_string().contains("milliseconds"));
     }
 }

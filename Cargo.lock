@@ -30,24 +30,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
-name = "assertify"
-version = "0.6.1"
+name = "assert2"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef37f1483f4889ed06836d9d04e965c7b7c19aa2acb27e4a5fdc051c5cdbfdbd"
+checksum = "01456b66bf7c5c8e9e86af730e50f313ba9458fcdd622b11571e3f8fd727ca5d"
 dependencies = [
- "assertify_proc_macros",
- "proc-macro-hack",
+ "assert2-macros",
+ "atty",
+ "yansi",
 ]
 
 [[package]]
-name = "assertify_proc_macros"
-version = "0.6.1"
+name = "assert2-macros"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dba324a474f003d37e52373f230276b28ec9c1612d624a8bc91b9fcdf3e4940"
+checksum = "45c77509bbd2708f7b3f02350c5481bf167f235aeba95e86fd12a2c6dfe6f61c"
 dependencies = [
- "proc-macro-hack",
  "proc-macro2",
  "quote",
+ "rustc_version",
  "syn",
 ]
 
@@ -414,12 +415,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro-hack"
-version = "0.5.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -448,7 +443,7 @@ name = "rederr"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "assertify",
+ "assert2",
  "atty",
  "clap",
  "duration-str",
@@ -468,6 +463,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustc_version"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
+dependencies = [
+ "semver",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -478,6 +482,12 @@ name = "scratch"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8132065adcfd6e02db789d9285a0deb2f3fcb04002865ab67d5fb103533898"
+
+[[package]]
+name = "semver"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
 
 [[package]]
 name = "serde"
@@ -680,3 +690,9 @@ name = "wyz"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85e60b0d1b5f99db2556934e21937020776a5d31520bf169e851ac44e6420214"
+
+[[package]]
+name = "yansi"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09041cd90cf85f7f8b2df60c646f853b7f535ce68f85244eb6731cf89fa498ec"
