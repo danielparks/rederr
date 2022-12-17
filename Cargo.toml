@@ -6,12 +6,10 @@ description = "Run a program and make stderr red"
 homepage = "https://github.com/danielparks/rederr"
 repository = "https://github.com/danielparks/rederr"
 readme = "README.md"
-keywords = []
-categories = [] # https://crates.io/category_slugs
+keywords = ["stderr"]
+categories = ["command-line-utilities"]
 license = "MIT OR Apache-2.0"
-edition = "2018"
-
-[badges]
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0.44"
