@@ -1,3 +1,4 @@
+use bstr::ByteSlice;
 use clap::Parser;
 use popol::set_nonblocking;
 use std::io::{self, Read, Write};
@@ -113,11 +114,10 @@ fn cli(params: Params) -> anyhow::Result<()> {
                     };
 
                     if params.debug {
-                        // FIXME don’t require UTF-8
                         println!(
                             "read {} bytes {:?}",
                             count,
-                            std::str::from_utf8(&buffer[..count]).unwrap()
+                            buffer[..count].as_bstr()
                         );
                     } else if count > 0 {
                         // Only output if there’s something to output.
