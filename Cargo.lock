@@ -306,7 +306,6 @@ dependencies = [
  "bstr",
  "clap",
  "duration-str",
- "libc",
  "popol",
  "termcolor",
 ]
