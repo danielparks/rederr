@@ -21,7 +21,10 @@ enum PollKey {
 }
 
 macro_rules! fail {
-    ($($arg:tt)*) => {{
+    ($start_of_line:expr, $($arg:tt)*) => {{
+        if !($start_of_line) {
+            eprintln!();
+        }
         eprintln!($($arg)*);
         process::exit(1);
     }};
@@ -34,7 +37,7 @@ const POLL_MAX_TIMEOUT: Timeout = Timeout::Future {
 
 fn main() {
     if let Err(error) = cli(Params::parse()) {
-        fail!("Error: {:#}", error);
+        fail!(true, "Error: {:#}", error);
     }
 }
 
@@ -48,7 +51,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
         .stderr(process::Stdio::piped())
         .spawn()
         .unwrap_or_else(|err| {
-            fail!("Could not run command {:?}: {}", params.command, err);
+            fail!(true, "Could not run command {:?}: {}", params.command, err);
         });
 
     let mut sources = popol::Sources::with_capacity(2);
@@ -76,13 +79,14 @@ fn cli(params: Params) -> anyhow::Result<()> {
     err_color.set_intense(true);
 
     let mut buffer = vec![0; params.buffer_size];
+    let mut start_of_line = true;
 
     // FIXME? this sometimes messes up the order if stderr and stdout are used
     // in the same line. Not sure this is possible to fix.
     while !sources.is_empty() {
         let timeout = cmp::min(&run_timeout, &idle_timeout);
         if let Some(expired) = timeout.check_expired() {
-            timeout_fail(timeout, &expired);
+            timeout_fail(start_of_line, timeout, &expired);
         }
 
         if params.debug {
@@ -94,8 +98,12 @@ fn cli(params: Params) -> anyhow::Result<()> {
 
         match poll(&mut sources, &mut events, timeout) {
             Ok(None) => {} // Success
-            Ok(Some(expired)) => timeout_fail(timeout, &expired),
-            Err(error) => fail!("Error while waiting for input: {:?}", error),
+            Ok(Some(expired)) => timeout_fail(start_of_line, timeout, &expired),
+            Err(error) => fail!(
+                start_of_line,
+                "Error while waiting for input: {:?}",
+                error
+            ),
         }
 
         for event in events.drain(..) {
@@ -134,15 +142,17 @@ fn cli(params: Params) -> anyhow::Result<()> {
                             buffer[..count].as_bstr()
                         );
                     } else if count > 0 {
-                        // Only output if there’s something to output.
+                        // Only output if something was read.
+                        start_of_line = buffer[count - 1] == b'\n';
+
                         if event.key == PollKey::Out {
                             out_out.write_all(&buffer[..count])?;
-                            out_out.flush()?; // If there wasn’t a newline.
+                            out_out.flush()?;
                         } else {
                             out_err.set_color(&err_color)?;
                             out_err.write_all(&buffer[..count])?;
                             out_err.reset()?;
-                            out_err.flush()?; // If there wasn’t a newline.
+                            out_err.flush()?;
                         }
                     }
 
@@ -164,9 +174,15 @@ fn cli(params: Params) -> anyhow::Result<()> {
         }
     }
 
-    let status = child.wait().expect("failed to wait on child");
+    let prefix = if start_of_line { "\n" } else { "" };
+
+    let status = child
+        .wait()
+        .unwrap_or_else(|_| panic!("{prefix}failed to wait on child"));
     process::exit(
-        wait_status_to_code(status).expect("no exit code or signal for child"),
+        wait_status_to_code(status).unwrap_or_else(|| {
+            panic!("{prefix}no exit code or signal for child")
+        }),
     );
 }
 
@@ -177,18 +193,23 @@ fn cli(params: Params) -> anyhow::Result<()> {
 /// `timeout`, since the idle timeout is always `Timeout::Future` or
 /// `Timeout::Never` and the overall run timeout is always `Timeout::Pending`
 /// or `Timeout::Never`.
-fn timeout_fail(timeout: &Timeout, expired: &Timeout) {
+fn timeout_fail(start_of_line: bool, timeout: &Timeout, expired: &Timeout) {
+    if !start_of_line {
+        eprintln!();
+    }
+
     match &timeout {
         Timeout::Never => panic!("timed out when no timeout was set"),
         Timeout::Expired { .. } => panic!("did not expect Timeout::Expired"),
         Timeout::Future { .. } => {
             fail!(
+                true,
                 "Timed out waiting for input after {:?}",
                 expired.elapsed_rounded()
             )
         }
         Timeout::Pending { .. } => {
-            fail!("Run timed out after {:?}", expired.elapsed_rounded())
+            fail!(true, "Run timed out after {:?}", expired.elapsed_rounded())
         }
     }
 }
