@@ -1,6 +1,7 @@
 //! Test handling of child processes exiting various ways.
 use assert2::check;
 use assert_cmd::prelude::*;
+use bstr::ByteSlice;
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
 use std::os::unix::process::ExitStatusExt;
@@ -18,8 +19,8 @@ fn child_success() {
     let output = command.args(["true"]).output().unwrap();
 
     check!(output.status.success());
-    check!(output.stdout.is_empty());
-    check!(output.stderr.is_empty());
+    check!(output.stdout.as_bstr() == "");
+    check!(output.stderr.as_bstr() == "");
 }
 
 #[test]
@@ -28,8 +29,8 @@ fn child_failure() {
     let output = command.args(["false"]).output().unwrap();
 
     check!(output.status.code() == Some(1));
-    check!(output.stdout.is_empty());
-    check!(output.stderr.is_empty());
+    check!(output.stdout.as_bstr() == "");
+    check!(output.stderr.as_bstr() == "");
 }
 
 #[test]
@@ -41,7 +42,7 @@ fn child_sigterm() {
     let output = child.wait_with_output().unwrap();
 
     check!(output.status.signal() == Some(15), "Expected SIGTERM (15)");
-    check!(output.stdout.is_empty());
-    check!(output.stderr.is_empty());
+    check!(output.stdout.as_bstr() == "");
+    check!(output.stderr.as_bstr() == "");
     check!(start.elapsed() < Duration::from_secs(1));
 }
