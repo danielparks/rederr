@@ -1,8 +1,40 @@
 use assert2::check;
-use bstr::ByteSlice;
+use bstr::{ByteSlice, B};
 use std::time::{Duration, Instant};
 
 mod helpers;
+
+#[test]
+fn simple_separate() {
+    // This seems to work without --separate, but I don’t think we can rely on
+    // the order of the lines without a sleep.
+    let output = helpers::rederr(["--separate", "tests/fixtures/simple.sh"])
+        .output()
+        .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.as_bstr() == "out\n");
+    check!(output.stderr.as_bstr() == "err\n");
+}
+
+#[test]
+fn simple_separate_long_idle_timeout() {
+    // The maximum timeout for `poll()` is around 27 days.
+    let start = Instant::now();
+    let output = helpers::rederr([
+        "--separate",
+        "--idle-timeout",
+        "2y",
+        "tests/fixtures/simple.sh",
+    ])
+    .output()
+    .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.as_bstr() == "out\n");
+    check!(output.stderr.as_bstr() == "err\n");
+    check!(start.elapsed() < Duration::from_millis(200));
+}
 
 #[test]
 fn midline_sleep_all() {
@@ -80,7 +112,7 @@ fn mixed_output_no_color_combined() {
 }
 
 #[test]
-fn mixed_output_no_color_split() {
+fn mixed_output_no_color_separate() {
     let output = helpers::rederr(["-s", "tests/fixtures/mixed_output.sh"])
         .output()
         .unwrap();
@@ -103,7 +135,7 @@ fn mixed_output_color_combined() {
 }
 
 #[test]
-fn mixed_output_color_split() {
+fn mixed_output_color_separate() {
     let output = helpers::rederr(["-cs", "tests/fixtures/mixed_output.sh"])
         .output()
         .unwrap();
@@ -112,4 +144,26 @@ fn mixed_output_color_split() {
     check!(output.stdout.as_bstr() == "111333\n");
     check!(output.stderr.as_bstr() ==
         "\u{1b}[0m\u{1b}[38;5;9maaa\u{1b}[0m\u{1b}[0m\u{1b}[38;5;9mbbb\n\u{1b}[0m");
+}
+
+#[test]
+fn invalid_utf8() {
+    let output = helpers::rederr(["tests/fixtures/invalid_utf8.sh"])
+        .output()
+        .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.as_bstr() == B(b"bad \xE2(\xA1 bad\n"));
+    check!(output.stderr.as_bstr() == "");
+}
+
+#[test]
+fn invalid_utf8_debug() {
+    let output = helpers::rederr(["--debug", "tests/fixtures/invalid_utf8.sh"])
+        .output()
+        .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.contains_str("\"bad \\xE2(\\xA1 bad\\n\""));
+    check!(output.stderr.as_bstr() == "");
 }
