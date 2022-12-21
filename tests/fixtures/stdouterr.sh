@@ -1,5 +1,5 @@
-#!/bin/zsh
-# It's often useful to have something that outputs to both stdout and stderr
+#!/bin/bash
+# Used for testing by hand, not automated testing.
 
 echo 01 stdout
 echo 02 stdout
