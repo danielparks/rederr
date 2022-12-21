@@ -5,6 +5,38 @@ use std::time::{Duration, Instant};
 mod helpers;
 
 #[test]
+fn simple_separate() {
+    // This seems to work without --separate, but I don’t think we can rely on
+    // the order of the lines without a sleep.
+    let output = helpers::rederr(["--separate", "tests/fixtures/simple.sh"])
+        .output()
+        .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.as_bstr() == "out\n");
+    check!(output.stderr.as_bstr() == "err\n");
+}
+
+#[test]
+fn simple_separate_long_idle_timeout() {
+    // The maximum timeout for `poll()` is around 27 days.
+    let start = Instant::now();
+    let output = helpers::rederr([
+        "--separate",
+        "--idle-timeout",
+        "2y",
+        "tests/fixtures/simple.sh",
+    ])
+    .output()
+    .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.as_bstr() == "out\n");
+    check!(output.stderr.as_bstr() == "err\n");
+    check!(start.elapsed() < Duration::from_millis(200));
+}
+
+#[test]
 fn midline_sleep_all() {
     let output = helpers::rederr(["tests/fixtures/midline_sleep.sh"])
         .output()
@@ -80,7 +112,7 @@ fn mixed_output_no_color_combined() {
 }
 
 #[test]
-fn mixed_output_no_color_split() {
+fn mixed_output_no_color_separate() {
     let output = helpers::rederr(["-s", "tests/fixtures/mixed_output.sh"])
         .output()
         .unwrap();
@@ -103,7 +135,7 @@ fn mixed_output_color_combined() {
 }
 
 #[test]
-fn mixed_output_color_split() {
+fn mixed_output_color_separate() {
     let output = helpers::rederr(["-cs", "tests/fixtures/mixed_output.sh"])
         .output()
         .unwrap();
