@@ -1,5 +1,5 @@
 use assert2::check;
-use bstr::ByteSlice;
+use bstr::{ByteSlice, B};
 use std::time::{Duration, Instant};
 
 mod helpers;
@@ -112,4 +112,26 @@ fn mixed_output_color_split() {
     check!(output.stdout.as_bstr() == "111333\n");
     check!(output.stderr.as_bstr() ==
         "\u{1b}[0m\u{1b}[38;5;9maaa\u{1b}[0m\u{1b}[0m\u{1b}[38;5;9mbbb\n\u{1b}[0m");
+}
+
+#[test]
+fn invalid_utf8() {
+    let output = helpers::rederr(["tests/fixtures/invalid_utf8.sh"])
+        .output()
+        .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.as_bstr() == B(b"bad \xE2(\xA1 bad\n"));
+    check!(output.stderr.as_bstr() == "");
+}
+
+#[test]
+fn invalid_utf8_debug() {
+    let output = helpers::rederr(["--debug", "tests/fixtures/invalid_utf8.sh"])
+        .output()
+        .unwrap();
+
+    check!(output.status.success());
+    check!(output.stdout.contains_str("\"bad \\xE2(\\xA1 bad\\n\""));
+    check!(output.stderr.as_bstr() == "");
 }
