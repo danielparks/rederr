@@ -87,8 +87,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
 
         if params.debug {
             println!(
-                "poll() with timeout {} (run timeout {})",
-                timeout, run_timeout
+                "poll() with timeout {timeout} (run timeout {run_timeout})"
             );
         }
 
@@ -100,7 +99,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
 
         for event in events.drain(..) {
             if params.debug {
-                println!("{:?}", event);
+                println!("{event:?}");
             }
 
             if event.is_readable() {
