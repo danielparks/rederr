@@ -109,7 +109,7 @@ impl fmt::Display for Timeout {
         match &self {
             Self::Never => write!(f, "Never"),
             Self::Future { timeout } => {
-                write!(f, "Future({:?})", timeout)
+                write!(f, "Future({timeout:?})")
             }
             Self::Pending { timeout, start } => {
                 write!(
@@ -120,11 +120,7 @@ impl fmt::Display for Timeout {
                 )
             }
             Self::Expired { requested, actual } => {
-                write!(
-                    f,
-                    "Expired({:?} requested, {:?} actual)",
-                    requested, actual,
-                )
+                write!(f, "Expired({requested:?} requested, {actual:?} actual)")
             }
         }
     }
