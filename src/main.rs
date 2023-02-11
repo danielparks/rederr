@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use bstr::ByteSlice;
 use clap::Parser;
 use popol::set_nonblocking;
