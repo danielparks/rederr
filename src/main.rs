@@ -8,7 +8,7 @@ use std::io::{self, Read, Write};
 use std::os::unix::process::ExitStatusExt;
 use std::process;
 use std::time::Duration;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use termcolor::{Color, ColorSpec, WriteColor};
 
 mod params;
 use params::Params;
@@ -66,12 +66,8 @@ fn cli(params: Params) -> anyhow::Result<()> {
         .expect("child stderr cannot be set to non-blocking");
     sources.register(PollKey::Err, &child_err, popol::interest::READ);
 
-    let mut out_out = color_stream(atty::Stream::Stdout, &params);
-    let mut out_err = if params.separate {
-        color_stream(atty::Stream::Stderr, &params)
-    } else {
-        color_stream(atty::Stream::Stdout, &params)
-    };
+    let mut out_out = params.out_stream();
+    let mut out_err = params.err_stream();
 
     let mut err_color = ColorSpec::new();
     err_color.set_fg(Some(Color::Red));
@@ -227,22 +223,6 @@ fn poll(
     }
 
     Ok(None)
-}
-
-fn color_stream(stream: atty::Stream, params: &Params) -> StandardStream {
-    let choice = if params.always_color {
-        ColorChoice::Always
-    } else if atty::is(stream) {
-        ColorChoice::Auto
-    } else {
-        ColorChoice::Never
-    };
-
-    match stream {
-        atty::Stream::Stdout => StandardStream::stdout(choice),
-        atty::Stream::Stderr => StandardStream::stderr(choice),
-        atty::Stream::Stdin => panic!("can't output to stdin"),
-    }
 }
 
 /// Get the actual exit code from a finished child process

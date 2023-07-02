@@ -13,10 +13,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.44"
-atty = "0.2.14"
 bstr = { version = "1.1.0", default-features = false }
 clap = { version = "4.0.17", features = ["derive"] }
 duration-str = { version = "0.5.0", default-features = false }
+is-terminal = "0.4.8"
 popol = "2.0.0"
 termcolor = "1.1.3"
 
