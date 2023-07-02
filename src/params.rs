@@ -1,7 +1,10 @@
 use anyhow::anyhow;
 use clap::Parser;
+use is_terminal::IsTerminal;
 use std::ffi::OsString;
+use std::io;
 use std::time::Duration;
+use termcolor::{ColorChoice, StandardStream};
 
 #[derive(Debug, Parser)]
 #[clap(version, about)]
@@ -51,6 +54,34 @@ pub(crate) struct Params {
         allow_hyphen_values = true
     )]
     pub buffer_size: usize,
+}
+
+impl Params {
+    /// Get the output stream for the child’s stdout.
+    pub fn out_stream(&self) -> StandardStream {
+        StandardStream::stdout(if self.always_color {
+            ColorChoice::Always
+        } else if io::stdout().is_terminal() {
+            ColorChoice::Auto
+        } else {
+            ColorChoice::Never
+        })
+    }
+
+    /// Get the output stream for the child’s stderr.
+    pub fn err_stream(&self) -> StandardStream {
+        if self.separate {
+            StandardStream::stderr(if self.always_color {
+                ColorChoice::Always
+            } else if io::stderr().is_terminal() {
+                ColorChoice::Auto
+            } else {
+                ColorChoice::Never
+            })
+        } else {
+            self.out_stream()
+        }
+    }
 }
 
 fn parse_duration(input: &str) -> anyhow::Result<Duration> {
