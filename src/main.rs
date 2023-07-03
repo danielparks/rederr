@@ -1,9 +1,13 @@
+//! `cron-wrapper` executable.
+
+// Most lint configuration is in lints.toml, but it doesn’t support forbid.
 #![forbid(unsafe_code)]
 
 use bstr::ByteSlice;
 use clap::Parser;
 use popol::set_nonblocking;
 use std::cmp;
+use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 use std::os::unix::process::ExitStatusExt;
 use std::process;
@@ -16,12 +20,17 @@ use params::Params;
 mod timeout;
 use timeout::Timeout;
 
+/// Key to identify child output stream that when `poll()` returns.
 #[derive(Clone, PartialEq, Eq, Debug)]
 enum PollKey {
+    /// Child stdout stream.
     Out,
+
+    /// Child stderr stream.
     Err,
 }
 
+/// Display an error message and exit with code 1.
 macro_rules! fail {
     ($($arg:tt)*) => {{
         eprintln!($($arg)*);
@@ -35,12 +44,13 @@ const POLL_MAX_TIMEOUT: Timeout = Timeout::Future {
 };
 
 fn main() {
-    if let Err(error) = cli(Params::parse()) {
+    if let Err(error) = cli(&Params::parse()) {
         fail!("Error: {:#}", error);
     }
 }
 
-fn cli(params: Params) -> anyhow::Result<()> {
+/// Initialize logging and run the child.
+fn cli(params: &Params) -> anyhow::Result<()> {
     let run_timeout = Timeout::from(params.run_timeout).start();
     let idle_timeout = Timeout::from(params.idle_timeout);
 
@@ -54,7 +64,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
         });
 
     let mut sources = popol::Sources::with_capacity(2);
-    let mut events = Vec::with_capacity(2);
+    let mut events = VecDeque::with_capacity(2);
 
     let mut child_out = child.stdout.take().expect("child.stdout is None");
     set_nonblocking(&child_out, true)
@@ -95,7 +105,7 @@ fn cli(params: Params) -> anyhow::Result<()> {
             Err(error) => fail!("Error while waiting for input: {:?}", error),
         }
 
-        for event in events.drain(..) {
+        while let Some(event) = events.pop_front() {
             if params.debug {
                 println!("{event:?}");
             }
@@ -118,9 +128,9 @@ fn cli(params: Params) -> anyhow::Result<()> {
                                 }
 
                                 break;
-                            } else {
-                                return Err(err.into());
                             }
+
+                            return Err(err.into());
                         }
                     };
 
@@ -198,7 +208,7 @@ fn timeout_fail(timeout: &Timeout, expired: &Timeout) {
 ///  * `Err(error)`: an error occurred.
 fn poll(
     sources: &mut popol::Sources<PollKey>,
-    events: &mut Vec<popol::Event<PollKey>>,
+    events: &mut VecDeque<popol::Event<PollKey>>,
     timeout: &Timeout,
 ) -> anyhow::Result<Option<Timeout>> {
     // FIXME? handle EINTR? I don’t think it will come up unless we have a
@@ -227,5 +237,10 @@ fn poll(
 
 /// Get the actual exit code from a finished child process
 fn wait_status_to_code(status: process::ExitStatus) -> Option<i32> {
-    status.code().or_else(|| Some(128 + status.signal()?))
+    // FIXME: broken on windows.
+    status
+        .code()
+        // status.signal() shouldn’t be >32, but we use saturating_add()
+        // just to be safe.
+        .or_else(|| Some(status.signal()?.saturating_add(128)))
 }
