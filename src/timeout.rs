@@ -1,3 +1,15 @@
+//! # Stateful timeouts
+//!
+//! [`Timeout`] provides a way to keep track of timeout that may or may not have
+//! started. It simplifies managing long running timeouts, particularly when
+//! they cover a number of function calls that each have their own timeouts.
+//!
+//! For example, you might want to allow an overall timeout for an entire run of
+//! your application. If your application makes calls that have their own
+//! timeouts, such as reading from a [`std::net::TcpStream`], you will need to
+//! set the timeout for the read correctly so that you don’t exceed the overall
+//! timeout.
+
 use std::cmp::Ordering;
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -7,22 +19,53 @@ const TIMEOUT_RESOLUTION: Duration = Duration::from_millis(1);
 
 /// A stateful timeout.
 ///
-/// Create a `Timeout::Future` to represent a planned timeout. Run `.start()`
-/// to get a new `Timeout::Pending` that tracks how much time has passed, then
-/// call `.check_expired()` on that to get `Timeout::Expired` when the timeout
-/// has expired.
+/// Create a `Timeout::Future` to represent a planned timeout. Run
+/// [`Timeout::start()`] to get a new `Timeout::Pending` that tracks how much
+/// time has passed, then call [`Timeout::check_expired()`] on that to get
+/// `Timeout::Expired` when the timeout has expired.
 #[derive(Clone, Eq, Debug)]
 pub enum Timeout {
+    /// Never time out.
     Never,
+
+    /// Time out after `timeout` has elapsed.
+    ///
+    /// It’s probably most convenient to use [`Timeout::from()`] to create a
+    /// timeout. For example:
+    ///
+    /// ```rust
+    /// use assert2::let_assert;
+    /// use cron_wrapper::timeout::Timeout;
+    /// use std::time::Duration;
+    ///
+    /// let_assert!(
+    ///     Timeout::Future { .. } = Timeout::from(Duration::from_millis(100))
+    /// );
+    /// ```
     Future {
+        /// The length of the timeout.
         timeout: Duration,
     },
+
+    /// A timeout that is counting down.
+    ///
+    /// Produced by [`Timeout::start()`].
     Pending {
+        /// The length of the timeout.
         timeout: Duration,
+
+        /// When the timeout started.
         start: Instant,
     },
+
+    /// A timeout that has expired.
+    ///
+    /// Produced by [`Timeout::check_expired()`].
     Expired {
+        /// The original length of the timeout.
         requested: Duration,
+
+        /// How much time actually elapsed before the operation was canceled.
         actual: Duration,
     },
 }
@@ -30,7 +73,8 @@ pub enum Timeout {
 impl Timeout {
     /// Get the remaining timeout if available.
     ///
-    /// Returns Some(Duration::ZERO) if the timeout has already expired.
+    /// Returns `Some(Duration::ZERO)` if the timeout has already expired.
+    #[must_use]
     pub fn timeout(&self) -> Option<Duration> {
         match &self {
             Self::Never => None,
@@ -46,6 +90,7 @@ impl Timeout {
     ///
     /// If the timeout is `Never`, `Pending`, or `Expired`, then it returns a
     /// clone of `self`.
+    #[must_use]
     pub fn start(&self) -> Self {
         if let Self::Future { timeout } = self {
             Self::Pending {
@@ -58,6 +103,11 @@ impl Timeout {
     }
 
     /// Has the timeout expired?
+    ///
+    /// Returns:
+    ///   * `None` if the timeout has not expired.
+    ///   * `Some(Timeout::Expired { .. })` if the timeout has expired.
+    #[must_use]
     pub fn check_expired(&self) -> Option<Self> {
         match &self {
             Self::Pending { timeout, start } => {
@@ -77,23 +127,39 @@ impl Timeout {
         }
     }
 
-    /// How much of the timeout has elapsed.
+    /// Calculate how much of the timeout has elapsed.
+    ///
+    /// [`Timeout::Never`] and [`Timeout::Future`] both always return
+    /// [`Duration::ZERO`].
+    ///
+    /// This will not do anything special if called on a [`Timeout::Pending`]
+    /// that has expired. See [`Timeout::check_expired()`].
+    #[must_use]
     pub fn elapsed(&self) -> Duration {
         match &self {
-            Self::Never => Duration::ZERO,
-            Self::Future { .. } => Duration::ZERO,
+            Self::Never | Self::Future { .. } => Duration::ZERO,
             Self::Pending { start, .. } => start.elapsed(),
             Self::Expired { actual, .. } => *actual,
         }
     }
 
-    /// How much of the timeout has elapsed, rounded to the nearest ms.
+    /// Calculate how much of the timeout has elapsed, rounded to the nearest
+    /// millisecond.
+    ///
+    /// [`Timeout::Never`] and [`Timeout::Future`] both always return
+    /// [`Duration::ZERO`].
+    ///
+    /// This will not do anything special if called on a [`Timeout::Pending`]
+    /// that has expired. See [`Timeout::check_expired()`].
+    #[must_use]
     pub fn elapsed_rounded(&self) -> Duration {
         // FIXME: actually consult resolution?
         let elapsed = self.elapsed();
-        let nanos = elapsed.subsec_nanos();
+        let nanos: u32 = elapsed.subsec_nanos();
         let sub_ms = nanos % 1_000_000;
 
+        // sub_ms is nanos % 1e6, so sub_ms <= nanos
+        #[allow(clippy::arithmetic_side_effects)]
         let rounded = if sub_ms < 500_000 {
             nanos - sub_ms
         } else {
@@ -134,10 +200,7 @@ impl From<Duration> for Timeout {
 
 impl From<Option<Duration>> for Timeout {
     fn from(timeout: Option<Duration>) -> Self {
-        match timeout {
-            Some(timeout) => Self::from(timeout),
-            None => Self::Never,
-        }
+        timeout.map(Self::from).unwrap_or(Self::Never)
     }
 }
 
@@ -167,11 +230,14 @@ impl PartialEq for Timeout {
 
 #[cfg(test)]
 mod tests {
+    // This triggers for the various compare_ tests.
+    #![allow(clippy::cognitive_complexity)]
+
     use super::*;
-    use assert2::check;
+    use assert2::{check, let_assert};
     use std::time::Duration;
 
-    fn future_timeout(microseconds: u64) -> Timeout {
+    const fn future_timeout(microseconds: u64) -> Timeout {
         Timeout::Future {
             timeout: Duration::from_micros(microseconds),
         }
@@ -186,7 +252,7 @@ mod tests {
         }
     }
 
-    fn expired_timeout(microseconds: u64) -> Timeout {
+    const fn expired_timeout(microseconds: u64) -> Timeout {
         Timeout::Expired {
             requested: Duration::from_micros(microseconds),
             actual: Duration::from_micros(microseconds),
@@ -301,5 +367,34 @@ mod tests {
         check!(timeout == pending_timeout(5_000, 5_500));
         check!(timeout == future_timeout(0));
         check!(timeout == expired_timeout(5_000));
+    }
+
+    #[test]
+    fn check_expired_timeout_never() {
+        check!(Timeout::Never.check_expired() == None);
+    }
+
+    #[test]
+    fn check_expired_timeout_future() {
+        check!(future_timeout(1_000).check_expired() == None);
+    }
+
+    #[test]
+    fn check_expired_timeout_pending() {
+        check!(pending_timeout(5_000, 1_000).check_expired() == None);
+    }
+
+    #[test]
+    fn check_expired_timeout_pending_overtime() {
+        let_assert!(
+            Some(Timeout::Expired { .. }) =
+                pending_timeout(5_000, 6_000).check_expired()
+        );
+    }
+
+    #[test]
+    fn check_expired_timeout_expired() {
+        let timeout = expired_timeout(5_000);
+        check!(timeout.check_expired() == Some(timeout));
     }
 }
