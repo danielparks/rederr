@@ -1,3 +1,5 @@
+//! Manage parameters for `rederr`.
+
 use anyhow::anyhow;
 use clap::Parser;
 use is_terminal::IsTerminal;
@@ -6,9 +8,10 @@ use std::io;
 use std::time::Duration;
 use termcolor::{ColorChoice, StandardStream};
 
+/// Parameters for `rederr`.
 #[derive(Debug, Parser)]
 #[clap(version, about)]
-pub(crate) struct Params {
+pub struct Params {
     /// The executable to run
     pub command: OsString,
 
@@ -42,7 +45,7 @@ pub(crate) struct Params {
     #[clap(long, short)]
     pub separate: bool,
 
-    // Hidden: output debugging information rather than coloring stderr
+    /// Hidden: output debugging information rather than coloring stderr
     #[clap(long, hide = true)]
     pub debug: bool,
 
@@ -84,6 +87,14 @@ impl Params {
     }
 }
 
+/// Parse a duration parameter.
+///
+/// ```rust
+/// assert_eq!(
+///     parse_duration("5s 500ms").unwrap(),
+///     Duration::from_millis(5_500),
+/// );
+/// ```
 fn parse_duration(input: &str) -> anyhow::Result<Duration> {
     let input = input.trim();
 
@@ -94,9 +105,11 @@ fn parse_duration(input: &str) -> anyhow::Result<Duration> {
         input
             .parse::<u64>()
             .map(Duration::from_secs)
-            .map_err(|e| e.into())
+            .map_err(Into::into)
     } else {
         let duration = duration_str::parse(input)?;
+        // subsec_millis() will always return a value < 1000.
+        #[allow(clippy::arithmetic_side_effects)]
         if duration.subsec_nanos() == duration.subsec_millis() * 1_000_000 {
             Ok(duration)
         } else {
