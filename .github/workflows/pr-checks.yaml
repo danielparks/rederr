@@ -39,6 +39,10 @@ jobs:
         with:
           components: clippy
       - run: cargo clippy --all-features --all-targets
+      - name: check doc lints
+        env:
+          RUSTDOCFLAGS: --document-private-items -Dwarnings
+        run: cargo doc --no-deps --all-features
 
   deny:
     name: cargo deny
