@@ -1,6 +1,6 @@
 //! `cron-wrapper` executable.
 
-// Most lint configuration is in lints.toml, but it doesn’t support forbid.
+// Lint configuration in Cargo.toml isn’t supported by cargo-geiger.
 #![forbid(unsafe_code)]
 
 use bstr::ByteSlice;
