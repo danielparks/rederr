@@ -14,7 +14,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::time::{Duration, Instant};
 
-/// Minimum valid timeout that poll() respects.
+/// Minimum valid timeout that `poll()` respects.
 const TIMEOUT_RESOLUTION: Duration = Duration::from_millis(1);
 
 /// A stateful timeout.
