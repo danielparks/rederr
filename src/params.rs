@@ -2,9 +2,8 @@
 
 use anyhow::anyhow;
 use clap::Parser;
-use is_terminal::IsTerminal;
 use std::ffi::OsString;
-use std::io;
+use std::io::{self, IsTerminal};
 use std::time::Duration;
 use termcolor::{ColorChoice, StandardStream};
 
