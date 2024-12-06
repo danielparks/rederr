@@ -165,6 +165,6 @@ fn invalid_utf8_debug() {
         .unwrap();
 
     check!(output.status.success());
-    check!(output.stdout.contains_str("\"bad \\xE2(\\xA1 bad\\n\""));
+    check!(output.stdout.contains_str("\"bad \\xe2(\\xa1 bad\\n\""));
     check!(output.stderr.as_bstr() == "");
 }
