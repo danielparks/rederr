@@ -1,3 +1,4 @@
+//! General tests.
 use assert2::check;
 use bstr::{ByteSlice, B};
 use std::time::{Duration, Instant};
