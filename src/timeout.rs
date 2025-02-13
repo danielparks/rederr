@@ -93,10 +93,7 @@ impl Timeout {
     #[must_use]
     pub fn start(&self) -> Self {
         if let Self::Future { timeout } = self {
-            Self::Pending {
-                timeout: *timeout,
-                start: Instant::now(),
-            }
+            Self::Pending { timeout: *timeout, start: Instant::now() }
         } else {
             self.clone()
         }
@@ -113,10 +110,7 @@ impl Timeout {
             Self::Pending { timeout, start } => {
                 let elapsed = start.elapsed();
                 if timeout.saturating_sub(elapsed) < TIMEOUT_RESOLUTION {
-                    Some(Self::Expired {
-                        requested: *timeout,
-                        actual: elapsed,
-                    })
+                    Some(Self::Expired { requested: *timeout, actual: elapsed })
                 } else {
                     None
                 }
@@ -238,9 +232,7 @@ mod tests {
     use std::time::Duration;
 
     const fn future_timeout(microseconds: u64) -> Timeout {
-        Timeout::Future {
-            timeout: Duration::from_micros(microseconds),
-        }
+        Timeout::Future { timeout: Duration::from_micros(microseconds) }
     }
 
     fn pending_timeout(microseconds: u64, elapsed: u64) -> Timeout {

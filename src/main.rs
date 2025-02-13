@@ -39,9 +39,8 @@ macro_rules! fail {
 }
 
 /// Maximum timeout that poll allows.
-const POLL_MAX_TIMEOUT: Timeout = Timeout::Future {
-    timeout: Duration::from_millis(i32::MAX as u64),
-};
+const POLL_MAX_TIMEOUT: Timeout =
+    Timeout::Future { timeout: Duration::from_millis(i32::MAX as u64) };
 
 fn main() {
     if let Err(error) = cli(&Params::parse()) {
