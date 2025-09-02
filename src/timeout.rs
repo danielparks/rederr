@@ -152,8 +152,10 @@ impl Timeout {
         let nanos: u32 = elapsed.subsec_nanos();
         let sub_ms = nanos % 1_000_000;
 
-        // sub_ms is nanos % 1e6, so sub_ms <= nanos
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "sub_ms is nanos % 1e6, so sub_ms <= nanos"
+        )]
         let rounded = if sub_ms < 500_000 {
             nanos - sub_ms
         } else {
@@ -224,8 +226,10 @@ impl PartialEq for Timeout {
 
 #[cfg(test)]
 mod tests {
-    // This triggers for the various compare_ tests.
-    #![allow(clippy::cognitive_complexity)]
+    #![expect(
+        clippy::cognitive_complexity,
+        reason = "tests are not actually that complex"
+    )]
 
     use super::*;
     use assert2::{check, let_assert};

@@ -107,8 +107,10 @@ fn parse_duration(input: &str) -> anyhow::Result<Duration> {
             .map_err(Into::into)
     } else {
         let duration = duration_str::parse(input).map_err(|s| anyhow!(s))?;
-        // subsec_millis() will always return a value < 1000.
-        #[allow(clippy::arithmetic_side_effects)]
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "subsec_millis() will always return a value < 1000"
+        )]
         if duration.subsec_nanos() == duration.subsec_millis() * 1_000_000 {
             Ok(duration)
         } else {
@@ -196,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
+    #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_long_option_after_command() {
         let_assert!(
             Ok(params) = Params::try_parse_from([
@@ -213,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
+    #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_same_long_option_after_command() {
         let_assert!(
             Ok(params) = Params::try_parse_from([
@@ -230,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
+    #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_short_option_after_command() {
         let_assert!(
             Ok(params) =
@@ -243,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // FIXME clap doesn’t stop parsing after first non-flag.
+    #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_same_short_option_after_command() {
         let_assert!(
             Ok(params) =
