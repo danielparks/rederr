@@ -234,7 +234,7 @@ fn poll(
     Ok(None)
 }
 
-/// Get the actual exit code from a finished child process
+/// Get the actual exit code from a finished child process.
 fn wait_status_to_code(status: process::ExitStatus) -> Option<i32> {
     // FIXME: broken on windows.
     status

@@ -11,18 +11,18 @@ use termcolor::{ColorChoice, StandardStream};
 #[derive(Debug, Parser)]
 #[clap(version, about)]
 pub struct Params {
-    /// The executable to run
+    /// The executable to run.
     pub command: OsString,
 
-    /// Arguments to pass to the executable
+    /// Arguments to pass to the executable.
     #[clap(allow_hyphen_values = true)]
     pub args: Vec<OsString>,
 
-    /// Always output in color
+    /// Always output in color.
     #[clap(long, short = 'c')]
     pub always_color: bool,
 
-    /// Timeout for entire run (e.g. "1s", "1h", or "30ms")
+    /// Timeout for entire run (e.g. "1s", "1h", or "30ms").
     #[clap(
         long,
         value_name = "DURATION",
@@ -31,7 +31,7 @@ pub struct Params {
     )]
     pub run_timeout: Option<Duration>,
 
-    /// Timeout for individual reads (e.g. "1s", "1h", or "30ms")
+    /// Timeout for individual reads (e.g. "1s", "1h", or "30ms").
     #[clap(
         long,
         value_name = "DURATION",
@@ -40,15 +40,15 @@ pub struct Params {
     )]
     pub idle_timeout: Option<Duration>,
 
-    /// Don't combine stderr into stdout; keep them separate
+    /// Don't combine stderr into stdout; keep them separate.
     #[clap(long, short)]
     pub separate: bool,
 
-    /// Hidden: output debugging information rather than coloring stderr
+    /// Hidden: output debugging information rather than coloring stderr.
     #[clap(long, hide = true)]
     pub debug: bool,
 
-    /// Hidden: how large a buffer to use
+    /// Hidden: how large a buffer to use.
     #[clap(
         long,
         default_value_t = 1024,
