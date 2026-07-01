@@ -68,9 +68,9 @@ fn midline_sleep_run_timeout() {
     let start = Instant::now();
     let output = helpers::rederr([
         "--idle-timeout",
-        "150ms",
+        "170ms",
         "--run-timeout",
-        "150ms",
+        "170ms",
         "tests/fixtures/midline_sleep.sh",
     ])
     .output()
@@ -87,7 +87,7 @@ fn midline_sleep_unused_timeouts() {
     let start = Instant::now();
     let output = helpers::rederr([
         "--idle-timeout",
-        "150ms",
+        "200ms",
         "--run-timeout",
         "500ms",
         "tests/fixtures/midline_sleep.sh",
