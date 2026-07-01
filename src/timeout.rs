@@ -34,12 +34,13 @@ pub enum Timeout {
     /// timeout. For example:
     ///
     /// ```rust
-    /// use assert2::let_assert;
+    /// use assert2::assert;
     /// use cron_wrapper::timeout::Timeout;
     /// use std::time::Duration;
     ///
-    /// let_assert!(
-    ///     Timeout::Future { .. } = Timeout::from(Duration::from_millis(100))
+    /// assert!(
+    ///     let Timeout::Future { .. }
+    ///         = Timeout::from(Duration::from_millis(100))
     /// );
     /// ```
     Future {
@@ -232,7 +233,7 @@ mod tests {
     )]
 
     use super::*;
-    use assert2::{check, let_assert};
+    use assert2::{assert, check};
     use std::time::Duration;
 
     const fn future_timeout(microseconds: u64) -> Timeout {
@@ -382,8 +383,8 @@ mod tests {
 
     #[test]
     fn check_expired_timeout_pending_overtime() {
-        let_assert!(
-            Some(Timeout::Expired { .. }) =
+        assert!(
+            let Some(Timeout::Expired { .. }) =
                 pending_timeout(5_000, 6_000).check_expired()
         );
     }

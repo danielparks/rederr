@@ -122,7 +122,7 @@ fn parse_duration(input: &str) -> anyhow::Result<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert2::{check, let_assert};
+    use assert2::{assert, check};
     use clap::error::{
         ContextKind::InvalidArg, ContextValue::String, ErrorKind,
     };
@@ -130,8 +130,8 @@ mod tests {
 
     #[test]
     fn args_invalid_long_option() {
-        let_assert!(
-            Err(error) =
+        assert!(
+            let Err(error) =
                 Params::try_parse_from(["redder", "--foo", "-s", "command"])
         );
         check!(error.kind() == ErrorKind::UnknownArgument);
@@ -140,8 +140,8 @@ mod tests {
 
     #[test]
     fn args_invalid_short_option() {
-        let_assert!(
-            Err(error) =
+        assert!(
+            let Err(error) =
                 Params::try_parse_from(["redder", "-X", "-s", "command"])
         );
         check!(error.kind() == ErrorKind::UnknownArgument);
@@ -150,8 +150,8 @@ mod tests {
 
     #[test]
     fn args_other_long_option_after_command() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--always-color",
                 "command",
@@ -166,8 +166,8 @@ mod tests {
 
     #[test]
     fn args_other_short_option_after_command() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--always-color",
                 "command",
@@ -182,8 +182,8 @@ mod tests {
 
     #[test]
     fn args_other_mixed_option_after_command() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--always-color",
                 "command",
@@ -200,8 +200,8 @@ mod tests {
     #[test]
     #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_long_option_after_command() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--always-color",
                 "command",
@@ -217,8 +217,8 @@ mod tests {
     #[test]
     #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_same_long_option_after_command() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--separate",
                 "command",
@@ -234,8 +234,8 @@ mod tests {
     #[test]
     #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_short_option_after_command() {
-        let_assert!(
-            Ok(params) =
+        assert!(
+            let Ok(params) =
                 Params::try_parse_from(["redder", "-c", "command", "-s"])
         );
         check!(params.command == "command");
@@ -247,8 +247,8 @@ mod tests {
     #[test]
     #[ignore = "clap doesn’t stop parsing after first non-flag"]
     fn args_our_same_short_option_after_command() {
-        let_assert!(
-            Ok(params) =
+        assert!(
+            let Ok(params) =
                 Params::try_parse_from(["redder", "-s", "command", "-s"])
         );
         check!(params.command == "command");
@@ -259,8 +259,8 @@ mod tests {
 
     #[test]
     fn args_command_with_args() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder", "-s", "command", "-abc", "foo", "--", "-s", "--bar",
             ])
         );
@@ -272,8 +272,8 @@ mod tests {
 
     #[test]
     fn args_buffer_size_negative() {
-        let_assert!(
-            Err(error) = Params::try_parse_from([
+        assert!(
+            let Err(error) = Params::try_parse_from([
                 "redder",
                 "--buffer-size",
                 "-2",
@@ -285,8 +285,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_2() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 "2",
@@ -298,8 +298,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_2s() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 "2s",
@@ -311,8 +311,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_2s_1ms() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 "2s 1ms",
@@ -324,8 +324,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_2h() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 "2h",
@@ -337,8 +337,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_negative() {
-        let_assert!(
-            Err(error) = Params::try_parse_from([
+        assert!(
+            let Err(error) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 "-2s",
@@ -351,8 +351,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_zero() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 "0",
@@ -364,8 +364,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_maximum() {
-        let_assert!(
-            Ok(params) = Params::try_parse_from([
+        assert!(
+            let Ok(params) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 &format!("{}ms", i32::MAX),
@@ -379,8 +379,8 @@ mod tests {
 
     #[test]
     fn args_idle_timeout_overly_precise() {
-        let_assert!(
-            Err(error) = Params::try_parse_from([
+        assert!(
+            let Err(error) = Params::try_parse_from([
                 "redder",
                 "--idle-timeout",
                 "2s 2ms 2ns",
