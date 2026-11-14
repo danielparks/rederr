@@ -3,7 +3,6 @@ name = "rederr"
 version = "0.1.0"
 authors = ["Daniel Parks <oss-rederr@demonhorse.org>"]
 description = "Run a program and make stderr red"
-homepage = "https://github.com/danielparks/rederr"
 repository = "https://github.com/danielparks/rederr"
 readme = "README.md"
 keywords = ["stderr"]
