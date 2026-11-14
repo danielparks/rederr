@@ -227,11 +227,6 @@ impl PartialEq for Timeout {
 
 #[cfg(test)]
 mod tests {
-    #![expect(
-        clippy::cognitive_complexity,
-        reason = "tests are not actually that complex"
-    )]
-
     use super::*;
     use assert2::{assert, check};
     use std::time::Duration;
